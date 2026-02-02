@@ -1486,7 +1486,7 @@
                                 <i class="fas fa-save"></i>
                                 <span>บันทึกรายการ</span>
                             </button>
-                            <button type="reset" class="btn btn-warning" style="flex: 1;">
+                            <button type="button" class="btn btn-warning" id="reset-form-btn" style="flex: 1;">
                                 <i class="fas fa-redo"></i>
                                 <span>ล้างข้อมูล</span>
                             </button>
@@ -1758,7 +1758,7 @@
                     <i class="fas fa-times"></i>
                     <span>ยกเลิก</span>
                 </button>
-                <button class="btn btn-success" id="modal-save-btn">
+                <button type="submit" class="btn btn-success" id="modal-save-btn">
                     <i class="fas fa-save"></i>
                     <span>บันทึก</span>
                 </button>
@@ -1767,21 +1767,518 @@
     </div>
 
     <script>
+        // ===== MONEYTRACK DATABASE SCRIPT =====
+        class MoneyTrackDB {
+            constructor() {
+                this.initializeDatabase();
+            }
+
+            // ===== INITIALIZATION =====
+            initializeDatabase() {
+                console.log('🔄 Initializing MoneyTrack Database...');
+                
+                // ตรวจสอบว่า database มีโครงสร้างถูกต้องหรือไม่
+                if (!localStorage.getItem('moneytrack_users')) {
+                    localStorage.setItem('moneytrack_users', JSON.stringify({}));
+                }
+                
+                if (!localStorage.getItem('moneytrack_transactions')) {
+                    localStorage.setItem('moneytrack_transactions', JSON.stringify({}));
+                }
+                
+                if (!localStorage.getItem('moneytrack_settings')) {
+                    localStorage.setItem('moneytrack_settings', JSON.stringify({
+                        defaultCurrency: 'THB',
+                        language: 'th',
+                        theme: 'light'
+                    }));
+                }
+                
+                console.log('✅ Database initialized');
+            }
+
+            // ===== USER MANAGEMENT =====
+            
+            // ตรวจสอบว่ามีผู้ใช้อยู่แล้วหรือไม่
+            userExists(email) {
+                const users = this.getAllUsers();
+                return !!users[email];
+            }
+
+            // ดึงข้อมูลผู้ใช้ทั้งหมด
+            getAllUsers() {
+                return JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
+            }
+
+            // สร้างผู้ใช้ใหม่
+            createUser(name, email, password) {
+                if (this.userExists(email)) {
+                    return { success: false, message: 'อีเมลนี้มีผู้ใช้แล้ว' };
+                }
+
+                const users = this.getAllUsers();
+                
+                users[email] = {
+                    name: name,
+                    email: email,
+                    password: this.hashPassword(password),
+                    registeredDate: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    settings: {
+                        defaultCurrency: 'THB',
+                        monthlyBudget: 0,
+                        categories: [...this.getDefaultCategories()]
+                    }
+                };
+
+                // สร้าง transaction เปล่าสำหรับผู้ใช้ใหม่
+                const allTransactions = this.getAllTransactions();
+                allTransactions[email] = [];
+                
+                // บันทึกข้อมูลตัวอย่าง (demo data)
+                if (allTransactions[email].length === 0) {
+                    this.createSampleData(email);
+                }
+
+                localStorage.setItem('moneytrack_users', JSON.stringify(users));
+                localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+                
+                return { success: true, user: users[email] };
+            }
+
+            // ล็อกอินผู้ใช้
+            loginUser(email, password) {
+                const users = this.getAllUsers();
+                const user = users[email];
+                
+                if (!user) {
+                    return { success: false, message: 'ไม่พบผู้ใช้นี้' };
+                }
+                
+                // ตรวจสอบรหัสผ่าน
+                if (user.password !== this.hashPassword(password)) {
+                    return { success: false, message: 'รหัสผ่านไม่ถูกต้อง' };
+                }
+                
+                // อัพเดทเวลาล็อกอินล่าสุด
+                user.lastLogin = new Date().toISOString();
+                users[email] = user;
+                localStorage.setItem('moneytrack_users', JSON.stringify(users));
+                
+                // บันทึกผู้ใช้ปัจจุบัน
+                const currentUser = {
+                    email: user.email,
+                    name: user.name,
+                    registeredDate: user.registeredDate,
+                    settings: user.settings
+                };
+                
+                localStorage.setItem('moneytrack_current_user', JSON.stringify(currentUser));
+                
+                return { success: true, user: currentUser };
+            }
+
+            // ดึงข้อมูลผู้ใช้ปัจจุบัน
+            getCurrentUser() {
+                const userData = localStorage.getItem('moneytrack_current_user');
+                return userData ? JSON.parse(userData) : null;
+            }
+
+            // ล็อกเอาต์
+            logoutUser() {
+                localStorage.removeItem('moneytrack_current_user');
+                return true;
+            }
+
+            // อัพเดทข้อมูลผู้ใช้
+            updateUser(email, updates) {
+                const users = this.getAllUsers();
+                
+                if (!users[email]) {
+                    return { success: false, message: 'ไม่พบผู้ใช้' };
+                }
+                
+                users[email] = { ...users[email], ...updates };
+                localStorage.setItem('moneytrack_users', JSON.stringify(users));
+                
+                // อัพเดท current user ด้วยถ้าเป็นคนเดียวกัน
+                const currentUser = this.getCurrentUser();
+                if (currentUser && currentUser.email === email) {
+                    currentUser.name = updates.name || currentUser.name;
+                    localStorage.setItem('moneytrack_current_user', JSON.stringify(currentUser));
+                }
+                
+                return { success: true, user: users[email] };
+            }
+
+            // ลบบัญชีผู้ใช้
+            deleteUser(email, confirmPassword) {
+                const users = this.getAllUsers();
+                const user = users[email];
+                
+                if (!user) {
+                    return { success: false, message: 'ไม่พบผู้ใช้' };
+                }
+                
+                // ตรวจสอบรหัสผ่าน
+                if (user.password !== this.hashPassword(confirmPassword)) {
+                    return { success: false, message: 'รหัสผ่านไม่ถูกต้อง' };
+                }
+                
+                // ลบผู้ใช้
+                delete users[email];
+                localStorage.setItem('moneytrack_users', JSON.stringify(users));
+                
+                // ลบ transactions ของผู้ใช้
+                const allTransactions = this.getAllTransactions();
+                delete allTransactions[email];
+                localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+                
+                // ถ้าเป็น current user ให้ล็อกเอาต์
+                const currentUser = this.getCurrentUser();
+                if (currentUser && currentUser.email === email) {
+                    this.logoutUser();
+                }
+                
+                return { success: true };
+            }
+
+            // ===== TRANSACTION MANAGEMENT =====
+            
+            // ดึง transactions ทั้งหมด (ของผู้ใช้ทั้งหมด)
+            getAllTransactions() {
+                return JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
+            }
+
+            // ดึง transactions ของผู้ใช้เฉพาะ
+            getUserTransactions(email) {
+                const allTransactions = this.getAllTransactions();
+                return allTransactions[email] || [];
+            }
+
+            // เพิ่ม transaction ใหม่
+            addTransaction(email, transactionData) {
+                const allTransactions = this.getAllTransactions();
+                
+                if (!allTransactions[email]) {
+                    allTransactions[email] = [];
+                }
+                
+                const transaction = {
+                    id: this.generateId(),
+                    ...transactionData,
+                    amount: parseFloat(transactionData.amount),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                
+                allTransactions[email].push(transaction);
+                localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+                
+                return { success: true, transaction: transaction };
+            }
+
+            // อัพเดท transaction
+            updateTransaction(email, transactionId, updates) {
+                const allTransactions = this.getAllTransactions();
+                const userTransactions = allTransactions[email];
+                
+                if (!userTransactions) {
+                    return { success: false, message: 'ไม่พบ transactions' };
+                }
+                
+                const index = userTransactions.findIndex(t => t.id === transactionId);
+                if (index === -1) {
+                    return { success: false, message: 'ไม่พบ transaction' };
+                }
+                
+                userTransactions[index] = {
+                    ...userTransactions[index],
+                    ...updates,
+                    updatedAt: new Date().toISOString()
+                };
+                
+                localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+                
+                return { success: true, transaction: userTransactions[index] };
+            }
+
+            // ลบ transaction
+            deleteTransaction(email, transactionId) {
+                const allTransactions = this.getAllTransactions();
+                const userTransactions = allTransactions[email];
+                
+                if (!userTransactions) {
+                    return { success: false, message: 'ไม่พบ transactions' };
+                }
+                
+                const index = userTransactions.findIndex(t => t.id === transactionId);
+                if (index === -1) {
+                    return { success: false, message: 'ไม่พบ transaction' };
+                }
+                
+                userTransactions.splice(index, 1);
+                localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+                
+                return { success: true };
+            }
+
+            // ค้นหา transactions
+            searchTransactions(email, filters = {}) {
+                let transactions = this.getUserTransactions(email);
+                
+                // กรองตาม type
+                if (filters.type && filters.type !== 'all') {
+                    transactions = transactions.filter(t => t.type === filters.type);
+                }
+                
+                // กรองตาม category
+                if (filters.category && filters.category !== 'all') {
+                    transactions = transactions.filter(t => t.category === filters.category);
+                }
+                
+                // กรองตามวันที่
+                if (filters.startDate) {
+                    transactions = transactions.filter(t => new Date(t.date) >= new Date(filters.startDate));
+                }
+                
+                if (filters.endDate) {
+                    transactions = transactions.filter(t => new Date(t.date) <= new Date(filters.endDate));
+                }
+                
+                // กรองตามคำค้นหา
+                if (filters.search) {
+                    const searchLower = filters.search.toLowerCase();
+                    transactions = transactions.filter(t => 
+                        t.description.toLowerCase().includes(searchLower) ||
+                        (t.note && t.note.toLowerCase().includes(searchLower)) ||
+                        t.category.toLowerCase().includes(searchLower)
+                    );
+                }
+                
+                // เรียงลำดับ
+                if (filters.sortBy === 'date') {
+                    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                } else if (filters.sortBy === 'amount') {
+                    transactions.sort((a, b) => b.amount - a.amount);
+                } else {
+                    // ตั้งค่าเริ่มต้นเรียงตามวันที่ (ใหม่ไปเก่า)
+                    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                }
+                
+                return transactions;
+            }
+
+            // ===== STATISTICS & REPORTS =====
+            
+            // สถิติรายเดือน
+            getMonthlyStats(email, year, month) {
+                const transactions = this.getUserTransactions(email);
+                
+                const monthlyTransactions = transactions.filter(t => {
+                    const date = new Date(t.date);
+                    return date.getFullYear() === year && date.getMonth() === month;
+                });
+                
+                const income = monthlyTransactions
+                    .filter(t => t.type === 'income')
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                    
+                const expense = monthlyTransactions
+                    .filter(t => t.type === 'expense')
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                    
+                const byCategory = {};
+                monthlyTransactions
+                    .filter(t => t.type === 'expense')
+                    .forEach(t => {
+                        byCategory[t.category] = (byCategory[t.category] || 0) + parseFloat(t.amount || 0);
+                    });
+                
+                return {
+                    income,
+                    expense,
+                    balance: income - expense,
+                    transactionCount: monthlyTransactions.length,
+                    byCategory
+                };
+            }
+
+            // สถิติรายปี
+            getYearlyStats(email, year) {
+                const transactions = this.getUserTransactions(email);
+                
+                const yearlyTransactions = transactions.filter(t => {
+                    const date = new Date(t.date);
+                    return date.getFullYear() === year;
+                });
+                
+                // สถิติรายเดือน
+                const monthlyStats = [];
+                for (let month = 0; month < 12; month++) {
+                    const monthTransactions = yearlyTransactions.filter(t => {
+                        const date = new Date(t.date);
+                        return date.getMonth() === month;
+                    });
+                    
+                    const income = monthTransactions
+                        .filter(t => t.type === 'income')
+                        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                        
+                    const expense = monthTransactions
+                        .filter(t => t.type === 'expense')
+                        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                        
+                    monthlyStats[month] = {
+                        income,
+                        expense,
+                        balance: income - expense,
+                        transactionCount: monthTransactions.length
+                    };
+                }
+                
+                // ยอดรวมทั้งปี
+                const totalIncome = yearlyTransactions
+                    .filter(t => t.type === 'income')
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                    
+                const totalExpense = yearlyTransactions
+                    .filter(t => t.type === 'expense')
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                
+                // หมวดหมู่ที่ใช้งบเยอะที่สุด
+                const categoryTotals = {};
+                yearlyTransactions
+                    .filter(t => t.type === 'expense')
+                    .forEach(t => {
+                        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount || 0);
+                    });
+                    
+                const topCategories = Object.entries(categoryTotals)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+                
+                return {
+                    totalIncome,
+                    totalExpense,
+                    totalBalance: totalIncome - totalExpense,
+                    transactionCount: yearlyTransactions.length,
+                    monthlyStats,
+                    topCategories
+                };
+            }
+
+            // ===== EXPORT & IMPORT =====
+            
+            // ส่งออกข้อมูลเป็น CSV
+            exportCSV(email) {
+                const transactions = this.getUserTransactions(email);
+                
+                let csv = 'วันที่,ประเภท,หมวดหมู่,รายละเอียด,จำนวนเงิน,หมายเหตุ\n';
+                
+                transactions.forEach(t => {
+                    const row = [
+                        t.date,
+                        t.type === 'income' ? 'รายรับ' : 'รายจ่าย',
+                        t.category,
+                        `"${t.description.replace(/"/g, '""')}"`,
+                        t.amount,
+                        `"${(t.note || '').replace(/"/g, '""')}"`
+                    ].join(',');
+                    
+                    csv += row + '\n';
+                });
+                
+                return csv;
+            }
+
+            // ===== UTILITY FUNCTIONS =====
+            
+            // สร้าง ID ใหม่
+            generateId() {
+                return 'txn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+
+            // Hash password (แบบง่ายสำหรับตัวอย่าง)
+            hashPassword(password) {
+                // ใน production ควรใช้ library เช่น bcrypt
+                return btoa(password); // แปลงเป็น base64
+            }
+
+            // หมวดหมู่เริ่มต้น
+            getDefaultCategories() {
+                return [
+                    { name: 'อาหาร', type: 'expense', color: '#FF6384', icon: 'utensils' },
+                    { name: 'การเดินทาง', type: 'expense', color: '#36A2EB', icon: 'car' },
+                    { name: 'เงินเดือน', type: 'income', color: '#4BC0C0', icon: 'money-bill-wave' },
+                    { name: 'บันเทิง', type: 'expense', color: '#FFCE56', icon: 'film' },
+                    { name: 'การศึกษา', type: 'expense', color: '#9966FF', icon: 'graduation-cap' },
+                    { name: 'สุขภาพ', type: 'expense', color: '#FF9F40', icon: 'heartbeat' },
+                    { name: 'อื่นๆ', type: 'both', color: '#9E9E9E', icon: 'ellipsis-h' }
+                ];
+            }
+
+            // สร้างข้อมูลตัวอย่าง
+            createSampleData(email) {
+                const sampleTransactions = [
+                    {
+                        date: new Date().toISOString().split('T')[0],
+                        type: 'income',
+                        category: 'เงินเดือน',
+                        amount: 30000,
+                        description: 'เงินเดือนประจำเดือน',
+                        note: 'โอนเข้าธนาคาร'
+                    },
+                    {
+                        date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+                        type: 'expense',
+                        category: 'อาหาร',
+                        amount: 150,
+                        description: 'ข้าวเที่ยง',
+                        note: 'ร้านอาหารข้าง office'
+                    },
+                    {
+                        date: new Date(Date.now() - 172800000).toISOString().split('T')[0],
+                        type: 'expense',
+                        category: 'การเดินทาง',
+                        amount: 500,
+                        description: 'น้ำมันรถ',
+                        note: 'เติมน้ำมัน PTT'
+                    },
+                    {
+                        date: new Date(Date.now() - 259200000).toISOString().split('T')[0],
+                        type: 'expense',
+                        category: 'บันเทิง',
+                        amount: 1200,
+                        description: 'ดูหนัง',
+                        note: 'ดูหนังกับครอบครัว'
+                    },
+                    {
+                        date: new Date(Date.now() - 345600000).toISOString().split('T')[0],
+                        type: 'income',
+                        category: 'อื่นๆ',
+                        amount: 5000,
+                        description: 'รับจ้าง freelance',
+                        note: 'ออกแบบเว็บไซต์'
+                    }
+                ];
+
+                const allTransactions = this.getAllTransactions();
+                allTransactions[email] = allTransactions[email] || [];
+                
+                sampleTransactions.forEach(txn => {
+                    this.addTransaction(email, txn);
+                });
+                
+                console.log('📊 Created sample data for new user');
+            }
+        }
+
         // ===== GLOBAL VARIABLES =====
+        const db = new MoneyTrackDB();
         let currentUser = null;
-        let transactions = [];
         let charts = {};
-        
-        const categories = [
-            { name: 'อาหาร', type: 'expense', color: '#FF6384' },
-            { name: 'การเดินทาง', type: 'expense', color: '#36A2EB' },
-            { name: 'เงินเดือน', type: 'income', color: '#4BC0C0' },
-            { name: 'บันเทิง', type: 'expense', color: '#FFCE56' },
-            { name: 'การศึกษา', type: 'expense', color: '#9966FF' },
-            { name: 'สุขภาพ', type: 'expense', color: '#FF9F40' },
-            { name: 'อื่นๆ', type: 'both', color: '#C9CBCF' }
-        ];
-        
+
         // ===== INITIALIZATION =====
         document.addEventListener('DOMContentLoaded', function() {
             console.log('💰 MoneyTrack Application Started');
@@ -1792,7 +2289,7 @@
             // Initialize event listeners
             initializeEventListeners();
         });
-        
+
         // ===== AUTHENTICATION =====
         function checkLoginStatus() {
             const userData = localStorage.getItem('moneytrack_current_user');
@@ -1803,13 +2300,13 @@
                 showLoginPage();
             }
         }
-        
+
         function showLoginPage() {
             document.getElementById('login-page').style.display = 'flex';
             document.getElementById('app-container').style.display = 'none';
             document.getElementById('mobile-menu-btn').style.display = 'none';
         }
-        
+
         function showMainApp() {
             document.getElementById('login-page').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
@@ -1831,73 +2328,7 @@
                 showNotification('ยินดีต้อนรับกลับ, ' + currentUser.name + '!', 'success');
             }, 1000);
         }
-        
-        function loginUser(email, password) {
-            const users = JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
-            
-            if (users[email] && users[email].password === password) {
-                currentUser = {
-                    email: email,
-                    name: users[email].name,
-                    registeredDate: users[email].registeredDate
-                };
-                
-                localStorage.setItem('moneytrack_current_user', JSON.stringify(currentUser));
-                showMainApp();
-                return true;
-            }
-            
-            return false;
-        }
-        
-        function registerUser(name, email, password) {
-            const users = JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
-            
-            if (users[email]) {
-                return false; // User already exists
-            }
-            
-            users[email] = {
-                name: name,
-                email: email,
-                password: password,
-                registeredDate: new Date().toISOString()
-            };
-            
-            localStorage.setItem('moneytrack_users', JSON.stringify(users));
-            
-            // Create empty transactions for this user
-            const userTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
-            userTransactions[email] = [];
-            localStorage.setItem('moneytrack_transactions', JSON.stringify(userTransactions));
-            
-            // Login the new user
-            return loginUser(email, password);
-        }
-        
-        function logoutUser() {
-            currentUser = null;
-            localStorage.removeItem('moneytrack_current_user');
-            showLoginPage();
-            showNotification('ออกจากระบบสำเร็จ', 'info');
-        }
-        
-        function updateUserInfo() {
-            if (!currentUser) return;
-            
-            document.getElementById('user-name').textContent = currentUser.name;
-            document.getElementById('user-email').textContent = currentUser.email;
-            document.getElementById('user-email-display').textContent = currentUser.email;
-            
-            const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
-            document.getElementById('user-avatar').innerHTML = initials || '<i class="fas fa-user"></i>';
-            
-            // Profile page
-            document.getElementById('profile-name').textContent = currentUser.name;
-            document.getElementById('profile-email').textContent = currentUser.email;
-            document.getElementById('profile-registered').textContent = new Date(currentUser.registeredDate).toLocaleDateString('th-TH');
-        }
-        
+
         // ===== EVENT LISTENERS =====
         function initializeEventListeners() {
             console.log('🔧 Initializing event listeners...');
@@ -1940,13 +2371,19 @@
                 document.getElementById('welcome-banner').style.display = 'none';
             });
             
-            // Add transaction buttons
+            // Add transaction buttons - แก้ไขตรงนี้
             document.getElementById('add-transaction-btn').addEventListener('click', showAddTransactionModal);
             document.getElementById('add-first-transaction').addEventListener('click', showAddTransactionModal);
             document.getElementById('add-first-transaction-2').addEventListener('click', showAddTransactionModal);
             document.getElementById('add-category-btn').addEventListener('click', function() {
                 showNotification('คุณสามารถเพิ่มหมวดหมู่ใหม่ในฟอร์มเพิ่มรายการ', 'info');
                 showAddTransactionModal();
+            });
+            
+            // Form buttons
+            document.getElementById('reset-form-btn').addEventListener('click', function() {
+                document.getElementById('transaction-form').reset();
+                document.getElementById('transaction-date').value = new Date().toISOString().split('T')[0];
             });
             
             // Refresh button
@@ -1961,12 +2398,12 @@
                 showPage('transactions');
             });
             
-            // Modal buttons
+            // Modal buttons - แก้ไขตรงนี้
             document.getElementById('modal-close-btn').addEventListener('click', hideAddTransactionModal);
             document.getElementById('modal-cancel-btn').addEventListener('click', hideAddTransactionModal);
-            document.getElementById('modal-save-btn').addEventListener('click', saveTransactionFromModal);
+            document.getElementById('modal-save-btn').addEventListener('click', handleModalSave);
             
-            // Form submission
+            // Form submission - แก้ไขตรงนี้
             document.getElementById('transaction-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 saveTransaction();
@@ -2027,7 +2464,7 @@
             
             console.log('✅ Event listeners initialized');
         }
-        
+
         function handleLogin() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
@@ -2037,13 +2474,16 @@
                 return;
             }
             
-            if (loginUser(email, password)) {
+            const result = db.loginUser(email, password);
+            if (result.success) {
+                currentUser = result.user;
                 showNotification('เข้าสู่ระบบสำเร็จ', 'success');
+                showMainApp();
             } else {
-                showNotification('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'error');
+                showNotification(result.message, 'error');
             }
         }
-        
+
         function handleRegister() {
             const name = document.getElementById('register-name').value;
             const email = document.getElementById('register-email').value;
@@ -2059,17 +2499,31 @@
                 return;
             }
             
-            if (registerUser(name, email, password)) {
+            const result = db.createUser(name, email, password);
+            if (result.success) {
                 showNotification('สมัครสมาชิกสำเร็จ', 'success');
+                // Login automatically after registration
+                const loginResult = db.loginUser(email, password);
+                if (loginResult.success) {
+                    currentUser = loginResult.user;
+                    showMainApp();
+                }
             } else {
-                showNotification('อีเมลนี้มีผู้ใช้แล้ว', 'error');
+                showNotification(result.message, 'error');
             }
         }
-        
+
+        function logoutUser() {
+            db.logoutUser();
+            currentUser = null;
+            showLoginPage();
+            showNotification('ออกจากระบบสำเร็จ', 'info');
+        }
+
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('active');
         }
-        
+
         // ===== PAGE NAVIGATION =====
         function showPage(pageId) {
             console.log('Showing page:', pageId);
@@ -2122,16 +2576,10 @@
                     break;
             }
         }
-        
+
         // ===== DATA LOADING =====
         function loadInitialData() {
             console.log('Loading initial data for user:', currentUser.email);
-            
-            // Load transactions for current user
-            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
-            transactions = allTransactions[currentUser.email] || [];
-            
-            console.log('Loaded transactions:', transactions.length);
             
             // Load dashboard
             loadDashboard();
@@ -2139,23 +2587,27 @@
             // Update category filter options
             updateCategoryFilter();
         }
-        
+
         function loadDashboard() {
             loadSummary();
             loadRecentTransactions();
             initializeCharts();
         }
-        
+
         function loadProfile() {
             if (!currentUser) return;
             
             // Update profile stats
+            const transactions = db.getUserTransactions(currentUser.email);
             const totalIncome = transactions.filter(t => t.type === 'income')
                 .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
             const totalExpense = transactions.filter(t => t.type === 'expense')
                 .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
             const balance = totalIncome - totalExpense;
             
+            document.getElementById('profile-name').textContent = currentUser.name;
+            document.getElementById('profile-email').textContent = currentUser.email;
+            document.getElementById('profile-registered').textContent = new Date(currentUser.registeredDate).toLocaleDateString('th-TH');
             document.getElementById('profile-transactions').textContent = transactions.length + ' รายการ';
             document.getElementById('profile-balance').textContent = formatCurrency(balance) + ' ฿';
             
@@ -2163,9 +2615,11 @@
             const uniqueCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
             document.getElementById('profile-categories').textContent = uniqueCategories.length + ' หมวดหมู่';
         }
-        
+
         function loadSummary() {
             // Calculate summary from transactions
+            const transactions = db.getUserTransactions(currentUser.email);
+            
             let totalIncome = 0;
             let totalExpense = 0;
             let currentMonthIncome = 0;
@@ -2200,18 +2654,24 @@
             document.getElementById('transaction-total').textContent = transactions.length;
             document.getElementById('transaction-count').textContent = transactions.length;
             
-            // Calculate trends (simple calculation)
-            const incomeTrend = transactions.length > 0 ? Math.min(Math.round((currentMonthIncome / totalIncome) * 100), 100) : 0;
-            const expenseTrend = transactions.length > 0 ? Math.min(Math.round((currentMonthExpense / totalExpense) * 100), 100) : 0;
+            // Calculate trends
+            const incomeTrend = totalIncome > 0 ? Math.min(Math.round((currentMonthIncome / totalIncome) * 100), 100) : 0;
+            const expenseTrend = totalExpense > 0 ? Math.min(Math.round((currentMonthExpense / totalExpense) * 100), 100) : 0;
             
             document.getElementById('income-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${incomeTrend}%</span>`;
             document.getElementById('expense-trend').innerHTML = `<i class="fas fa-arrow-down"></i><span>${expenseTrend}%</span>`;
-            document.getElementById('balance-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${incomeTrend - expenseTrend}%</span>`;
-            document.getElementById('transaction-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${transactions.length}%</span>`;
+            
+            const balanceTrend = totalIncome > 0 ? Math.round((balance / totalIncome) * 100) : 0;
+            document.getElementById('balance-trend').innerHTML = `<i class="fas ${balanceTrend >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}"></i><span>${Math.abs(balanceTrend)}%</span>`;
+            
+            const transactionTrend = transactions.length > 0 ? Math.min(Math.round((transactions.length / 100) * 100), 100) : 0;
+            document.getElementById('transaction-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${transactionTrend}%</span>`;
         }
-        
+
         function loadRecentTransactions() {
             const filter = document.getElementById('recent-filter-type').value;
+            const transactions = db.getUserTransactions(currentUser.email);
+            
             let filteredTransactions = transactions;
             
             if (filter !== 'all') {
@@ -2226,57 +2686,55 @@
             
             displayRecentTransactions(recent);
         }
-        
+
         function loadTransactions() {
             const type = document.getElementById('filter-type').value;
             const category = document.getElementById('filter-category').value;
             const date = document.getElementById('filter-date').value;
             
-            let filteredTransactions = transactions;
+            const filters = {};
+            if (type !== 'all') filters.type = type;
+            if (category !== 'all') filters.category = category;
+            if (date) filters.startDate = date;
             
-            if (type !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => t.type === type);
-            }
-            
-            if (category !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => t.category === category);
-            }
-            
-            if (date) {
-                filteredTransactions = filteredTransactions.filter(t => t.date === date);
-            }
-            
-            // Sort by date (newest first)
-            filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            const filteredTransactions = db.searchTransactions(currentUser.email, filters);
             
             displayAllTransactions(filteredTransactions);
         }
-        
+
         function loadCategories() {
             const container = document.getElementById('categories-list');
+            const transactions = db.getUserTransactions(currentUser.email);
             
             // Calculate category totals
             const categoryTotals = {};
             transactions.forEach(transaction => {
                 const amount = parseFloat(transaction.amount) || 0;
                 if (!categoryTotals[transaction.category]) {
-                    categoryTotals[transaction.category] = 0;
+                    categoryTotals[transaction.category] = { income: 0, expense: 0 };
                 }
-                categoryTotals[transaction.category] += amount;
+                
+                if (transaction.type === 'income') {
+                    categoryTotals[transaction.category].income += amount;
+                } else {
+                    categoryTotals[transaction.category].expense += amount;
+                }
             });
+            
+            const defaultCategories = db.getDefaultCategories();
             
             let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">';
             
-            categories.forEach(category => {
-                // Count transactions in this category
+            defaultCategories.forEach(category => {
+                const totals = categoryTotals[category.name] || { income: 0, expense: 0 };
                 const count = transactions.filter(t => t.category === category.name).length;
-                const total = categoryTotals[category.name] || 0;
+                const total = totals.income + totals.expense;
                 
                 html += `
                     <div style="background: white; border-radius: var(--radius); padding: 20px; border-left: 5px solid ${category.color}; box-shadow: var(--shadow);">
                         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
                             <div style="width: 40px; height: 40px; background: ${category.color}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-tag" style="color: white;"></i>
+                                <i class="fas fa-${category.icon || 'tag'}" style="color: white;"></i>
                             </div>
                             <div>
                                 <h4 style="margin: 0;">${category.name}</h4>
@@ -2298,9 +2756,10 @@
             
             container.innerHTML = html;
         }
-        
+
         function updateCategoryFilter() {
             const filter = document.getElementById('filter-category');
+            const transactions = db.getUserTransactions(currentUser.email);
             
             // Get unique categories from transactions
             const uniqueCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
@@ -2316,7 +2775,404 @@
                 filter.appendChild(option);
             });
         }
-        
+
+        // ===== TRANSACTION MANAGEMENT =====
+        function showAddTransactionModal() {
+            const modal = document.getElementById('add-transaction-modal');
+            modal.style.display = 'flex';
+            
+            // Set today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('modal-transaction-date').value = today;
+            
+            // Reset form
+            document.getElementById('modal-transaction-form').reset();
+        }
+
+        function hideAddTransactionModal() {
+            document.getElementById('add-transaction-modal').style.display = 'none';
+        }
+
+        function handleModalSave() {
+            const transaction = {
+                date: document.getElementById('modal-transaction-date').value,
+                type: document.getElementById('modal-transaction-type').value,
+                category: document.getElementById('modal-transaction-category').value,
+                amount: document.getElementById('modal-transaction-amount').value,
+                description: document.getElementById('modal-transaction-description').value,
+                note: document.getElementById('modal-transaction-note').value
+            };
+            
+            if (!validateTransaction(transaction)) return;
+            
+            // Add to transactions array
+            const result = db.addTransaction(currentUser.email, transaction);
+            
+            if (result.success) {
+                // Show success message
+                showNotification('บันทึกรายการสำเร็จ', 'success');
+                
+                // Hide modal
+                hideAddTransactionModal();
+                
+                // Refresh data
+                refreshData();
+            } else {
+                showNotification('เกิดข้อผิดพลาดในการบันทึก', 'error');
+            }
+        }
+
+        function saveTransaction() {
+            const transaction = {
+                date: document.getElementById('transaction-date').value,
+                type: document.getElementById('transaction-type').value,
+                category: document.getElementById('transaction-category').value,
+                amount: document.getElementById('transaction-amount').value,
+                description: document.getElementById('transaction-description').value,
+                note: document.getElementById('transaction-note').value
+            };
+            
+            if (!validateTransaction(transaction)) return;
+            
+            // Add to transactions array
+            const result = db.addTransaction(currentUser.email, transaction);
+            
+            if (result.success) {
+                // Show success message
+                showNotification('บันทึกรายการสำเร็จ', 'success');
+                
+                // Reset form
+                document.getElementById('transaction-form').reset();
+                document.getElementById('transaction-date').value = new Date().toISOString().split('T')[0];
+                
+                // Refresh data
+                refreshData();
+                
+                // Go back to dashboard
+                showPage('dashboard');
+            } else {
+                showNotification('เกิดข้อผิดพลาดในการบันทึก', 'error');
+            }
+        }
+
+        function validateTransaction(transaction) {
+            if (!transaction.date) {
+                showNotification('กรุณาเลือกวันที่', 'error');
+                return false;
+            }
+            
+            if (!transaction.category) {
+                showNotification('กรุณาเลือกหมวดหมู่', 'error');
+                return false;
+            }
+            
+            if (!transaction.amount || parseFloat(transaction.amount) <= 0) {
+                showNotification('กรุณากรอกจำนวนเงินที่ถูกต้อง', 'error');
+                return false;
+            }
+            
+            if (!transaction.description) {
+                showNotification('กรุณากรอกรายละเอียด', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function deleteTransaction(index) {
+            if (!confirm('คุณแน่ใจต้องการลบรายการนี้?')) return;
+            
+            const transactions = db.getUserTransactions(currentUser.email);
+            const transactionId = transactions[index].id;
+            
+            // Remove from array
+            const result = db.deleteTransaction(currentUser.email, transactionId);
+            
+            if (result.success) {
+                // Show success message
+                showNotification('ลบรายการสำเร็จ', 'success');
+                
+                // Refresh data
+                refreshData();
+            } else {
+                showNotification('เกิดข้อผิดพลาดในการลบ', 'error');
+            }
+        }
+
+        // ===== PROFILE MANAGEMENT =====
+        function resetUserData() {
+            if (!confirm('คุณแน่ใจต้องการรีเซ็ตข้อมูลทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
+                return;
+            }
+            
+            // ลบ transactions ของผู้ใช้ปัจจุบัน
+            const allTransactions = db.getAllTransactions();
+            allTransactions[currentUser.email] = [];
+            localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+            
+            showNotification('รีเซ็ตข้อมูลสำเร็จ', 'success');
+            refreshData();
+        }
+
+        function deleteAccount() {
+            if (!confirm('คุณแน่ใจต้องการลบบัญชีนี้? การดำเนินการนี้จะลบข้อมูลทั้งหมดและไม่สามารถย้อนกลับได้')) {
+                return;
+            }
+            
+            const password = prompt('กรุณากรอกรหัสผ่านเพื่อยืนยันการลบบัญชี:');
+            if (!password) return;
+            
+            const result = db.deleteUser(currentUser.email, password);
+            if (result.success) {
+                showNotification('ลบบัญชีสำเร็จ', 'info');
+                logoutUser();
+            } else {
+                showNotification(result.message, 'error');
+            }
+        }
+
+        // ===== CHART FUNCTIONS =====
+        function initializeCharts() {
+            updateCharts('month');
+        }
+
+        function updateCharts(period) {
+            updateIncomeExpenseChart(period);
+            updateCategoryChart(period);
+        }
+
+        function updateIncomeExpenseChart(period) {
+            const ctx = document.getElementById('incomeExpenseChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            if (charts.incomeExpense) {
+                charts.incomeExpense.destroy();
+            }
+            
+            const transactions = db.getUserTransactions(currentUser.email);
+            
+            // Prepare data based on period
+            let labels = [];
+            let incomeData = [];
+            let expenseData = [];
+            
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            
+            if (period === 'month') {
+                // Last 6 months
+                for (let i = 5; i >= 0; i--) {
+                    const month = new Date(currentYear, currentMonth - i, 1);
+                    const monthName = month.toLocaleDateString('th-TH', { month: 'short' });
+                    labels.push(monthName);
+                    
+                    // Calculate income and expense for this month
+                    const monthIncome = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getMonth() === month.getMonth() && 
+                                   date.getFullYear() === month.getFullYear() &&
+                                   t.type === 'income';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    const monthExpense = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getMonth() === month.getMonth() && 
+                                   date.getFullYear() === month.getFullYear() &&
+                                   t.type === 'expense';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    incomeData.push(monthIncome);
+                    expenseData.push(monthExpense);
+                }
+            } else {
+                // Last 6 years
+                for (let i = 5; i >= 0; i--) {
+                    const year = currentYear - i;
+                    labels.push(year.toString());
+                    
+                    // Calculate income and expense for this year
+                    const yearIncome = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getFullYear() === year && t.type === 'income';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    const yearExpense = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getFullYear() === year && t.type === 'expense';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    incomeData.push(yearIncome);
+                    expenseData.push(yearExpense);
+                }
+            }
+            
+            // ถ้าไม่มีข้อมูลให้แสดงข้อความ
+            if (incomeData.every(v => v === 0) && expenseData.every(v => v === 0)) {
+                ctx.parentElement.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                        <div style="text-align: center;">
+                            <i class="fas fa-chart-bar" style="font-size: 48px; color: var(--gray); opacity: 0.5;"></i>
+                            <p style="margin-top: 10px; color: var(--gray);">ไม่มีข้อมูลสำหรับแสดงกราฟ</p>
+                            <p style="font-size: 14px; color: var(--gray);">เริ่มบันทึกรายการเพื่อดูสถิติ</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            charts.incomeExpense = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'รายรับ',
+                            data: incomeData,
+                            backgroundColor: 'rgba(6, 214, 160, 0.8)',
+                            borderColor: 'rgba(6, 214, 160, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'รายจ่าย',
+                            data: expenseData,
+                            backgroundColor: 'rgba(239, 71, 111, 0.8)',
+                            borderColor: 'rgba(239, 71, 111, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value) + ' บาท';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCategoryChart(period) {
+            const ctx = document.getElementById('categoryChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            if (charts.category) {
+                charts.category.destroy();
+            }
+            
+            const transactions = db.getUserTransactions(currentUser.email);
+            
+            // Filter transactions by period
+            const now = new Date();
+            let filteredTransactions = transactions;
+            
+            if (period === 'month') {
+                filteredTransactions = transactions.filter(t => {
+                    const date = new Date(t.date);
+                    return date.getMonth() === now.getMonth() && 
+                           date.getFullYear() === now.getFullYear() &&
+                           t.type === 'expense';
+                });
+            } else {
+                filteredTransactions = transactions.filter(t => {
+                    const date = new Date(t.date);
+                    return date.getFullYear() === now.getFullYear() && t.type === 'expense';
+                });
+            }
+            
+            // Calculate category totals
+            const categoryTotals = {};
+            filteredTransactions.forEach(transaction => {
+                const amount = parseFloat(transaction.amount) || 0;
+                if (!categoryTotals[transaction.category]) {
+                    categoryTotals[transaction.category] = 0;
+                }
+                categoryTotals[transaction.category] += amount;
+            });
+            
+            // Prepare data for chart
+            const labels = [];
+            const data = [];
+            const backgroundColors = [];
+            
+            const defaultCategories = db.getDefaultCategories();
+            
+            defaultCategories.forEach(category => {
+                if (category.type !== 'income' && categoryTotals[category.name] && categoryTotals[category.name] > 0) {
+                    labels.push(category.name);
+                    data.push(categoryTotals[category.name]);
+                    backgroundColors.push(category.color);
+                }
+            });
+            
+            // If no data, show message
+            if (data.length === 0) {
+                ctx.parentElement.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                        <div style="text-align: center;">
+                            <i class="fas fa-chart-pie" style="font-size: 48px; color: var(--gray); opacity: 0.5;"></i>
+                            <p style="margin-top: 10px; color: var(--gray);">ไม่มีข้อมูลหมวดหมู่</p>
+                            <p style="font-size: 14px; color: var(--gray);">เพิ่มรายจ่ายเพื่อดูสถิติหมวดหมู่</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            charts.category = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${context.label}: ${formatCurrency(value)} ฿ (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // ===== DISPLAY FUNCTIONS =====
         function displayRecentTransactions(transactionsList) {
             const container = document.getElementById('recent-transactions');
@@ -2389,7 +3245,7 @@
             
             container.innerHTML = html;
         }
-        
+
         function displayAllTransactions(transactionsList) {
             const container = document.getElementById('all-transactions');
             
@@ -2478,396 +3334,21 @@
                 });
             });
         }
-        
-        // ===== CHART FUNCTIONS =====
-        function initializeCharts() {
-            updateCharts('month');
+
+        function updateUserInfo() {
+            if (!currentUser) return;
+            
+            document.getElementById('user-name').textContent = currentUser.name;
+            document.getElementById('user-email').textContent = currentUser.email;
+            document.getElementById('user-email-display').textContent = currentUser.email;
+            
+            const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+            document.getElementById('user-avatar').innerHTML = initials || '<i class="fas fa-user"></i>';
         }
-        
-        function updateCharts(period) {
-            updateIncomeExpenseChart(period);
-            updateCategoryChart(period);
-        }
-        
-        function updateIncomeExpenseChart(period) {
-            const ctx = document.getElementById('incomeExpenseChart');
-            if (!ctx) return;
-            
-            // Destroy existing chart if it exists
-            if (charts.incomeExpense) {
-                charts.incomeExpense.destroy();
-            }
-            
-            // Prepare data based on period
-            let labels = [];
-            let incomeData = [];
-            let expenseData = [];
-            
-            const now = new Date();
-            const currentYear = now.getFullYear();
-            const currentMonth = now.getMonth();
-            
-            if (period === 'month') {
-                // Last 6 months
-                for (let i = 5; i >= 0; i--) {
-                    const month = new Date(currentYear, currentMonth - i, 1);
-                    const monthName = month.toLocaleDateString('th-TH', { month: 'short' });
-                    labels.push(monthName);
-                    
-                    // Calculate income and expense for this month
-                    const monthIncome = transactions
-                        .filter(t => {
-                            const date = new Date(t.date);
-                            return date.getMonth() === month.getMonth() && 
-                                   date.getFullYear() === month.getFullYear() &&
-                                   t.type === 'income';
-                        })
-                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                    
-                    const monthExpense = transactions
-                        .filter(t => {
-                            const date = new Date(t.date);
-                            return date.getMonth() === month.getMonth() && 
-                                   date.getFullYear() === month.getFullYear() &&
-                                   t.type === 'expense';
-                        })
-                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                    
-                    incomeData.push(monthIncome);
-                    expenseData.push(monthExpense);
-                }
-            } else {
-                // Last 6 years
-                for (let i = 5; i >= 0; i--) {
-                    const year = currentYear - i;
-                    labels.push(year.toString());
-                    
-                    // Calculate income and expense for this year
-                    const yearIncome = transactions
-                        .filter(t => {
-                            const date = new Date(t.date);
-                            return date.getFullYear() === year && t.type === 'income';
-                        })
-                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                    
-                    const yearExpense = transactions
-                        .filter(t => {
-                            const date = new Date(t.date);
-                            return date.getFullYear() === year && t.type === 'expense';
-                        })
-                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                    
-                    incomeData.push(yearIncome);
-                    expenseData.push(yearExpense);
-                }
-            }
-            
-            charts.incomeExpense = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'รายรับ',
-                            data: incomeData,
-                            backgroundColor: 'rgba(6, 214, 160, 0.8)',
-                            borderColor: 'rgba(6, 214, 160, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'รายจ่าย',
-                            data: expenseData,
-                            backgroundColor: 'rgba(239, 71, 111, 0.8)',
-                            borderColor: 'rgba(239, 71, 111, 1)',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return formatCurrency(value) + ' บาท';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        function updateCategoryChart(period) {
-            const ctx = document.getElementById('categoryChart');
-            if (!ctx) return;
-            
-            // Destroy existing chart if it exists
-            if (charts.category) {
-                charts.category.destroy();
-            }
-            
-            // Filter transactions by period
-            const now = new Date();
-            let filteredTransactions = transactions;
-            
-            if (period === 'month') {
-                filteredTransactions = transactions.filter(t => {
-                    const date = new Date(t.date);
-                    return date.getMonth() === now.getMonth() && 
-                           date.getFullYear() === now.getFullYear() &&
-                           t.type === 'expense';
-                });
-            } else {
-                filteredTransactions = transactions.filter(t => {
-                    const date = new Date(t.date);
-                    return date.getFullYear() === now.getFullYear() && t.type === 'expense';
-                });
-            }
-            
-            // Calculate category totals
-            const categoryTotals = {};
-            filteredTransactions.forEach(transaction => {
-                const amount = parseFloat(transaction.amount) || 0;
-                if (!categoryTotals[transaction.category]) {
-                    categoryTotals[transaction.category] = 0;
-                }
-                categoryTotals[transaction.category] += amount;
-            });
-            
-            // Prepare data for chart
-            const labels = [];
-            const data = [];
-            const backgroundColors = [];
-            
-            categories.forEach(category => {
-                if (categoryTotals[category.name] && categoryTotals[category.name] > 0) {
-                    labels.push(category.name);
-                    data.push(categoryTotals[category.name]);
-                    backgroundColors.push(category.color);
-                }
-            });
-            
-            // If no data, show message
-            if (data.length === 0) {
-                ctx.parentElement.innerHTML = `
-                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                        <div style="text-align: center;">
-                            <i class="fas fa-chart-pie" style="font-size: 48px; color: var(--gray); opacity: 0.5;"></i>
-                            <p style="margin-top: 10px; color: var(--gray);">ไม่มีข้อมูลหมวดหมู่</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-            
-            charts.category = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: backgroundColors,
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.parsed;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = Math.round((value / total) * 100);
-                                    return `${context.label}: ${formatCurrency(value)} ฿ (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // ===== TRANSACTION MANAGEMENT =====
-        function showAddTransactionModal() {
-            const modal = document.getElementById('add-transaction-modal');
-            modal.style.display = 'flex';
-            
-            // Set today's date
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('modal-transaction-date').value = today;
-            
-            // Reset form
-            document.getElementById('modal-transaction-form').reset();
-        }
-        
-        function hideAddTransactionModal() {
-            document.getElementById('add-transaction-modal').style.display = 'none';
-        }
-        
-        function saveTransaction() {
-            const transaction = {
-                date: document.getElementById('transaction-date').value,
-                type: document.getElementById('transaction-type').value,
-                category: document.getElementById('transaction-category').value,
-                amount: document.getElementById('transaction-amount').value,
-                description: document.getElementById('transaction-description').value,
-                note: document.getElementById('transaction-note').value
-            };
-            
-            if (!validateTransaction(transaction)) return;
-            
-            // Add to transactions array
-            transactions.push(transaction);
-            
-            // Save to localStorage
-            saveToLocalStorage();
-            
-            // Show success message
-            showNotification('บันทึกรายการสำเร็จ', 'success');
-            
-            // Reset form
-            document.getElementById('transaction-form').reset();
-            document.getElementById('transaction-date').value = new Date().toISOString().split('T')[0];
-            
-            // Refresh data
-            refreshData();
-            
-            // Go back to dashboard
-            showPage('dashboard');
-        }
-        
-        function saveTransactionFromModal() {
-            const transaction = {
-                date: document.getElementById('modal-transaction-date').value,
-                type: document.getElementById('modal-transaction-type').value,
-                category: document.getElementById('modal-transaction-category').value,
-                amount: document.getElementById('modal-transaction-amount').value,
-                description: document.getElementById('modal-transaction-description').value,
-                note: document.getElementById('modal-transaction-note').value
-            };
-            
-            if (!validateTransaction(transaction)) return;
-            
-            // Add to transactions array
-            transactions.push(transaction);
-            
-            // Save to localStorage
-            saveToLocalStorage();
-            
-            // Show success message
-            showNotification('บันทึกรายการสำเร็จ', 'success');
-            
-            // Hide modal
-            hideAddTransactionModal();
-            
-            // Refresh data
-            refreshData();
-        }
-        
-        function validateTransaction(transaction) {
-            if (!transaction.date) {
-                showNotification('กรุณาเลือกวันที่', 'error');
-                return false;
-            }
-            
-            if (!transaction.category) {
-                showNotification('กรุณาเลือกหมวดหมู่', 'error');
-                return false;
-            }
-            
-            if (!transaction.amount || parseFloat(transaction.amount) <= 0) {
-                showNotification('กรุณากรอกจำนวนเงินที่ถูกต้อง', 'error');
-                return false;
-            }
-            
-            if (!transaction.description) {
-                showNotification('กรุณากรอกรายละเอียด', 'error');
-                return false;
-            }
-            
-            return true;
-        }
-        
-        function deleteTransaction(index) {
-            if (!confirm('คุณแน่ใจต้องการลบรายการนี้?')) return;
-            
-            // Remove from array
-            transactions.splice(index, 1);
-            
-            // Save to localStorage
-            saveToLocalStorage();
-            
-            // Show success message
-            showNotification('ลบรายการสำเร็จ', 'success');
-            
-            // Refresh data
-            refreshData();
-        }
-        
-        function saveToLocalStorage() {
-            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
-            allTransactions[currentUser.email] = transactions;
-            localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
-            
-            console.log('Saved transactions for user:', currentUser.email, transactions.length);
-            
-            // Update category filter options
-            updateCategoryFilter();
-        }
-        
-        // ===== PROFILE MANAGEMENT =====
-        function resetUserData() {
-            if (!confirm('คุณแน่ใจต้องการรีเซ็ตข้อมูลทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
-                return;
-            }
-            
-            transactions = [];
-            saveToLocalStorage();
-            
-            showNotification('รีเซ็ตข้อมูลสำเร็จ', 'success');
-            refreshData();
-        }
-        
-        function deleteAccount() {
-            if (!confirm('คุณแน่ใจต้องการลบบัญชีนี้? การดำเนินการนี้จะลบข้อมูลทั้งหมดและไม่สามารถย้อนกลับได้')) {
-                return;
-            }
-            
-            // Remove user from users list
-            const users = JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
-            delete users[currentUser.email];
-            localStorage.setItem('moneytrack_users', JSON.stringify(users));
-            
-            // Remove user transactions
-            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
-            delete allTransactions[currentUser.email];
-            localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
-            
-            // Logout
-            logoutUser();
-            showNotification('ลบบัญชีสำเร็จ', 'info');
-        }
-        
+
         // ===== UTILITY FUNCTIONS =====
         function refreshData() {
             showNotification('กำลังโหลดข้อมูลใหม่...', 'info');
-            
-            // Reload from localStorage
-            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
-            transactions = allTransactions[currentUser.email] || [];
             
             // Update based on current page
             const currentPage = document.querySelector('.page-content[style*="block"]')?.id;
@@ -2883,31 +3364,19 @@
             
             showNotification('อัพเดทข้อมูลสำเร็จ', 'success');
         }
-        
+
         function exportData() {
+            const transactions = db.getUserTransactions(currentUser.email);
+            
             if (transactions.length === 0) {
                 showNotification('ไม่มีข้อมูลสำหรับส่งออก', 'warning');
                 return;
             }
             
-            // Create CSV content
-            let csvContent = 'วันที่,ประเภท,หมวดหมู่,รายการ,จำนวนเงิน,หมายเหตุ\n';
-            
-            transactions.forEach(transaction => {
-                const row = [
-                    transaction.date,
-                    transaction.type === 'income' ? 'รายรับ' : 'รายจ่าย',
-                    transaction.category,
-                    `"${transaction.description}"`,
-                    transaction.amount,
-                    `"${transaction.note || ''}"`
-                ].join(',');
-                
-                csvContent += row + '\n';
-            });
+            const csv = db.exportCSV(currentUser.email);
             
             // Create download link
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             
@@ -2920,7 +3389,7 @@
             
             showNotification('ส่งออกข้อมูลสำเร็จ', 'success');
         }
-        
+
         function formatCurrency(amount) {
             if (amount === null || amount === undefined) return '0';
             
@@ -2932,7 +3401,7 @@
                 maximumFractionDigits: 2
             });
         }
-        
+
         function showNotification(message, type = 'info') {
             // Remove existing notifications
             document.querySelectorAll('.notification').forEach(n => n.remove());
@@ -2979,11 +3448,13 @@
                 }, 300);
             }, 5000);
         }
-        
+
         function setupTransactionForm() {
-            // Nothing special needed for now
+            // Set today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transaction-date').value = today;
         }
-        
+
         console.log('✅ MoneyTrack application loaded successfully!');
     </script>
 </body>
