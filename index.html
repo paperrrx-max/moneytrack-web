@@ -2130,6 +2130,41 @@
             { id: 7, name: 'อื่นๆ', type: 'both', color: '#9E9E9E' }
         ];
         
+        // ===== SESSION MANAGEMENT =====
+        function saveSession(user) {
+            localStorage.setItem('moneytrack_session', JSON.stringify({
+                username: user.username,
+                timestamp: new Date().getTime(),
+                token: btoa(user.username + ':' + Date.now())
+            }));
+        }
+
+        function getSession() {
+            const session = localStorage.getItem('moneytrack_session');
+            if (!session) return null;
+            
+            try {
+                const data = JSON.parse(session);
+                // ตรวจสอบว่ายังไม่หมดอายุ (7 วัน)
+                const sessionAge = new Date().getTime() - data.timestamp;
+                const sevenDays = 7 * 24 * 60 * 60 * 1000;
+                
+                if (sessionAge > sevenDays) {
+                    localStorage.removeItem('moneytrack_session');
+                    return null;
+                }
+                
+                return data;
+            } catch (e) {
+                localStorage.removeItem('moneytrack_session');
+                return null;
+            }
+        }
+
+        function clearSession() {
+            localStorage.removeItem('moneytrack_session');
+        }
+
         // ===== DATABASE FUNCTIONS =====
         function createUserDatabase(username) {
             return new Promise((resolve, reject) => {
@@ -2399,9 +2434,9 @@
             });
         }
         
-        function loginUser(username, password) {
+        function loginUser(username, password, isSessionLogin = false) {
             return new Promise((resolve, reject) => {
-                console.log('Attempting login for user:', username);
+                console.log('Attempting login for user:', username, isSessionLogin ? '(from session)' : '');
                 
                 initializeUsersDatabase().then(usersDB => {
                     const tx = usersDB.transaction(['users'], 'readonly');
@@ -2416,7 +2451,7 @@
                             return;
                         }
                         
-                        if (user.password !== password) {
+                        if (!isSessionLogin && user.password !== password) {
                             reject('รหัสผ่านไม่ถูกต้อง');
                             return;
                         }
@@ -2437,6 +2472,12 @@
                             
                             currentUser = user;
                             currentUserDB = userDB;
+                            
+                            // บันทึก session ถ้าไม่ใช่การล็อกอินจาก session
+                            if (!isSessionLogin) {
+                                saveSession(user);
+                            }
+                            
                             resolve(user);
                             
                         } catch (dbError) {
@@ -2449,6 +2490,11 @@
                                     
                                     currentUser = user;
                                     currentUserDB = userDB;
+                                    
+                                    if (!isSessionLogin) {
+                                        saveSession(user);
+                                    }
+                                    
                                     resolve(user);
                                     
                                 } catch (createError) {
@@ -2757,6 +2803,7 @@
         }
         
         function logout() {
+            clearSession(); // ล้าง session
             currentUser = null;
             if (currentUserDB) {
                 currentUserDB.close();
@@ -3410,91 +3457,170 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('transaction-date').value = today;
             
-            showLoginPage();
-            
-            // ===== LOGIN PAGE EVENTS =====
-            document.getElementById('login-form').addEventListener('submit', function(e) {
-                e.preventDefault();
+            // ตรวจสอบว่ามี session อยู่หรือไม่
+            const session = getSession();
+            if (session) {
+                console.log('Found session, attempting auto-login...');
                 
-                const username = document.getElementById('login-username').value.trim();
-                const password = document.getElementById('login-password').value;
+                // แสดง loading screen
+                document.getElementById('login-page').style.display = 'flex';
+                const loginContainer = document.querySelector('.login-container');
+                loginContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div class="login-logo-icon" style="margin: 0 auto 20px;">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <h1 style="color: var(--dark); margin-bottom: 10px;">MoneyTrack</h1>
+                        <p style="color: var(--gray);">กำลังเข้าสู่ระบบอัตโนมัติ...</p>
+                    </div>
+                `;
                 
-                if (!username || !password) {
-                    showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
-                    return;
-                }
-                
-                const loginBtn = document.getElementById('login-btn');
-                loginBtn.disabled = true;
-                loginBtn.innerHTML = '<div class="loading-spinner"></div> <span>กำลังเข้าสู่ระบบ...</span>';
-                
-                loginUser(username, password)
-                    .then(user => {
-                        showNotification('เข้าสู่ระบบสำเร็จ', 'success');
-                        showApp();
-                    })
-                    .catch(error => {
-                        showNotification(error, 'error');
-                    })
-                    .finally(() => {
-                        loginBtn.disabled = false;
-                        loginBtn.innerHTML = '<span>เข้าสู่ระบบ</span>';
-                    });
-            });
-            
-            // ===== REGISTER PAGE EVENTS =====
-            document.getElementById('register-link').addEventListener('click', function(e) {
-                e.preventDefault();
-                showRegisterPage();
-            });
-            
-            document.getElementById('login-link').addEventListener('click', function(e) {
-                e.preventDefault();
+                // พยายามล็อกอินด้วย session
+                setTimeout(() => {
+                    loginUser(session.username, '', true)
+                        .then(user => {
+                            showNotification('เข้าสู่ระบบอัตโนมัติสำเร็จ', 'success');
+                            showApp();
+                        })
+                        .catch(error => {
+                            console.log('Auto-login failed:', error);
+                            clearSession();
+                            // รีเซ็ตหน้า login
+                            loginContainer.innerHTML = `
+                                <div class="login-logo">
+                                    <div class="login-logo-icon">
+                                        <i class="fas fa-wallet"></i>
+                                    </div>
+                                    <h1>MoneyTrack</h1>
+                                    <p>แอปบริหารการเงินส่วนบุคคล</p>
+                                </div>
+                                
+                                <form class="login-form" id="login-form">
+                                    <div class="form-group">
+                                        <label for="login-username">ชื่อผู้ใช้</label>
+                                        <input type="text" id="login-username" class="form-input" placeholder="กรอกชื่อผู้ใช้" required>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="login-password">รหัสผ่าน</label>
+                                        <input type="password" id="login-password" class="form-input" placeholder="กรอกรหัสผ่าน" required>
+                                    </div>
+                                    
+                                    <div class="login-options">
+                                        <div class="remember-me">
+                                            <input type="checkbox" id="remember-me">
+                                            <label for="remember-me">จำการเข้าสู่ระบบ</label>
+                                        </div>
+                                        <a href="#" class="forgot-password">ลืมรหัสผ่าน?</a>
+                                    </div>
+                                    
+                                    <button type="submit" class="login-btn" id="login-btn">
+                                        <span>เข้าสู่ระบบ</span>
+                                    </button>
+                                </form>
+                                
+                                <div class="register-link">
+                                    ยังไม่มีบัญชีผู้ใช้? <a href="#" id="register-link">สมัครสมาชิก</a>
+                                </div>
+                            `;
+                            // Re-attach event listeners
+                            setupLoginPageEvents();
+                        });
+                }, 1000);
+            } else {
+                // ไม่มี session, แสดงหน้า login ปกติ
                 showLoginPage();
-            });
+            }
             
-            document.getElementById('register-form').addEventListener('submit', function(e) {
-                e.preventDefault();
+            function setupLoginPageEvents() {
+                // ===== LOGIN PAGE EVENTS =====
+                document.getElementById('login-form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('login-username').value.trim();
+                    const password = document.getElementById('login-password').value;
+                    const rememberMe = document.getElementById('remember-me').checked;
+                    
+                    if (!username || !password) {
+                        showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                        return;
+                    }
+                    
+                    const loginBtn = document.getElementById('login-btn');
+                    loginBtn.disabled = true;
+                    loginBtn.innerHTML = '<div class="loading-spinner"></div> <span>กำลังเข้าสู่ระบบ...</span>';
+                    
+                    loginUser(username, password, false)
+                        .then(user => {
+                            showNotification('เข้าสู่ระบบสำเร็จ', 'success');
+                            showApp();
+                        })
+                        .catch(error => {
+                            showNotification(error, 'error');
+                        })
+                        .finally(() => {
+                            loginBtn.disabled = false;
+                            loginBtn.innerHTML = '<span>เข้าสู่ระบบ</span>';
+                        });
+                });
                 
-                const username = document.getElementById('register-username').value.trim();
-                const email = document.getElementById('register-email').value.trim();
-                const password = document.getElementById('register-password').value;
-                const confirmPassword = document.getElementById('register-confirm-password').value;
+                // ===== REGISTER PAGE EVENTS =====
+                document.getElementById('register-link').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showRegisterPage();
+                });
                 
-                if (!username || !email || !password || !confirmPassword) {
-                    showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
-                    return;
-                }
+                document.getElementById('login-link').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showLoginPage();
+                });
                 
-                if (password.length < 6) {
-                    showNotification('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร', 'error');
-                    return;
-                }
-                
-                if (password !== confirmPassword) {
-                    showNotification('รหัสผ่านไม่ตรงกัน', 'error');
-                    return;
-                }
-                
-                const registerBtn = document.getElementById('register-btn');
-                registerBtn.disabled = true;
-                registerBtn.innerHTML = '<div class="loading-spinner"></div> <span>กำลังสมัครสมาชิก...</span>';
-                
-                registerUser(username, email, password)
-                    .then(user => {
-                        showNotification('สมัครสมาชิกสำเร็จ', 'success');
-                        document.getElementById('login-username').value = username;
-                        document.getElementById('login-password').value = '';
-                        showLoginPage();
-                    })
-                    .catch(error => {
-                        showNotification(error, 'error');
-                    })
-                    .finally(() => {
-                        registerBtn.disabled = false;
-                        registerBtn.innerHTML = '<span>สมัครสมาชิก</span>';
-                    });
-            });
+                document.getElementById('register-form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('register-username').value.trim();
+                    const email = document.getElementById('register-email').value.trim();
+                    const password = document.getElementById('register-password').value;
+                    const confirmPassword = document.getElementById('register-confirm-password').value;
+                    
+                    if (!username || !email || !password || !confirmPassword) {
+                        showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                        return;
+                    }
+                    
+                    if (password.length < 6) {
+                        showNotification('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร', 'error');
+                        return;
+                    }
+                    
+                    if (password !== confirmPassword) {
+                        showNotification('รหัสผ่านไม่ตรงกัน', 'error');
+                        return;
+                    }
+                    
+                    const registerBtn = document.getElementById('register-btn');
+                    registerBtn.disabled = true;
+                    registerBtn.innerHTML = '<div class="loading-spinner"></div> <span>กำลังสมัครสมาชิก...</span>';
+                    
+                    registerUser(username, email, password)
+                        .then(user => {
+                            showNotification('สมัครสมาชิกสำเร็จ', 'success');
+                            document.getElementById('login-username').value = username;
+                            document.getElementById('login-password').value = '';
+                            showLoginPage();
+                        })
+                        .catch(error => {
+                            showNotification(error, 'error');
+                        })
+                        .finally(() => {
+                            registerBtn.disabled = false;
+                            registerBtn.innerHTML = '<span>สมัครสมาชิก</span>';
+                        });
+                });
+            }
+            
+            // เรียกใช้ครั้งแรก
+            setupLoginPageEvents();
             
             // ===== APP NAVIGATION EVENTS =====
             document.querySelectorAll('.nav-item[data-page]').forEach(item => {
