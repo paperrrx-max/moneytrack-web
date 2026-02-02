@@ -54,6 +54,97 @@
             min-height: 100vh;
         }
 
+        /* Login Page */
+        .login-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--gradient);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-logo-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--gradient);
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 40px;
+            color: white;
+        }
+
+        .login-logo h2 {
+            font-size: 32px;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .login-logo p {
+            color: var(--gray);
+        }
+
+        .login-form .form-group {
+            margin-bottom: 20px;
+        }
+
+        .login-form .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .login-form .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--light-gray);
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            font-family: 'Prompt', sans-serif;
+            transition: var(--transition);
+        }
+
+        .login-form .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        }
+
+        .login-switch {
+            text-align: center;
+            margin-top: 20px;
+            color: var(--gray);
+        }
+
+        .login-switch a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .login-switch a:hover {
+            text-decoration: underline;
+        }
+
         /* Sidebar */
         .sidebar {
             width: 280px;
@@ -796,6 +887,57 @@
             z-index: 1000;
         }
 
+        /* Profile Page */
+        .profile-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 40px;
+            box-shadow: var(--shadow);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            background: var(--gradient);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 48px;
+            color: white;
+        }
+
+        .profile-info {
+            margin-bottom: 30px;
+        }
+
+        .profile-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .profile-info-item:last-child {
+            border-bottom: none;
+        }
+
+        .profile-info-label {
+            color: var(--gray);
+        }
+
+        .profile-info-value {
+            font-weight: 600;
+        }
+
         /* Responsive */
         @media (max-width: 992px) {
             .sidebar {
@@ -905,16 +1047,80 @@
             align-items: center;
             justify-content: center;
         }
+
+        /* Logout Button */
+        .logout-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            margin: 0 25px;
+        }
     </style>
 </head>
 <body>
+    <!-- Login Page -->
+    <div class="login-page" id="login-page">
+        <div class="login-card">
+            <div class="login-logo">
+                <div class="login-logo-icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h2>MoneyTrack</h2>
+                <p>บริหารการเงินอัจฉริยะ</p>
+            </div>
+            
+            <div class="login-form" id="login-form">
+                <h3 style="margin-bottom: 20px; text-align: center;">เข้าสู่ระบบ</h3>
+                <div class="form-group">
+                    <label class="form-label">อีเมล</label>
+                    <input type="email" id="login-email" class="form-input" placeholder="กรอกอีเมลของคุณ" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">รหัสผ่าน</label>
+                    <input type="password" id="login-password" class="form-input" placeholder="กรอกรหัสผ่าน" required>
+                </div>
+                <button class="btn btn-primary" id="login-btn" style="width: 100%;">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>เข้าสู่ระบบ</span>
+                </button>
+                <div class="login-switch">
+                    ยังไม่มีบัญชี? <a href="#" id="show-register">สมัครสมาชิก</a>
+                </div>
+            </div>
+            
+            <div class="login-form" id="register-form" style="display: none;">
+                <h3 style="margin-bottom: 20px; text-align: center;">สมัครสมาชิก</h3>
+                <div class="form-group">
+                    <label class="form-label">ชื่อ</label>
+                    <input type="text" id="register-name" class="form-input" placeholder="กรอกชื่อของคุณ" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">อีเมล</label>
+                    <input type="email" id="register-email" class="form-input" placeholder="กรอกอีเมลของคุณ" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">รหัสผ่าน</label>
+                    <input type="password" id="register-password" class="form-input" placeholder="กรอกรหัสผ่าน (อย่างน้อย 6 ตัว)" required>
+                </div>
+                <button class="btn btn-success" id="register-btn" style="width: 100%;">
+                    <i class="fas fa-user-plus"></i>
+                    <span>สมัครสมาชิก</span>
+                </button>
+                <div class="login-switch">
+                    มีบัญชีแล้ว? <a href="#" id="show-login">เข้าสู่ระบบ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Menu Button -->
-    <button class="mobile-menu-btn" id="mobile-menu-btn">
+    <button class="mobile-menu-btn" id="mobile-menu-btn" style="display: none;">
         <i class="fas fa-bars"></i>
     </button>
 
     <!-- ===== MAIN APPLICATION ===== -->
-    <div class="app-container" id="app-container">
+    <div class="app-container" id="app-container" style="display: none;">
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -924,7 +1130,7 @@
                     </div>
                     <div class="app-logo-text">
                         <h2>MoneyTrack</h2>
-                        <p>v2.0 - พับลิคเวอร์ชัน</p>
+                        <p id="user-email-display">ผู้ใช้ MoneyTrack</p>
                     </div>
                 </div>
                 
@@ -969,6 +1175,13 @@
                     <div class="nav-text">หมวดหมู่</div>
                 </a>
                 
+                <a href="#" class="nav-item" data-page="profile">
+                    <div class="nav-icon">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="nav-text">โปรไฟล์</div>
+                </a>
+                
                 <div style="margin: 20px 0; border-top: 1px solid var(--light-gray);"></div>
                 
                 <a href="#" class="nav-item" data-page="help">
@@ -984,6 +1197,13 @@
                     </div>
                     <div class="nav-text">เกี่ยวกับ</div>
                 </a>
+                
+                <div class="logout-btn">
+                    <button class="btn btn-danger" id="logout-btn" style="width: 100%;">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>ออกจากระบบ</span>
+                    </button>
+                </div>
             </nav>
         </div>
         
@@ -1036,9 +1256,9 @@
                             <div class="card-icon">
                                 <i class="fas fa-money-bill-wave"></i>
                             </div>
-                            <div class="card-trend trend-up">
+                            <div class="card-trend" id="income-trend">
                                 <i class="fas fa-arrow-up"></i>
-                                <span>12%</span>
+                                <span>0%</span>
                             </div>
                         </div>
                         <div class="card-title">รายรับทั้งหมด</div>
@@ -1051,9 +1271,9 @@
                             <div class="card-icon">
                                 <i class="fas fa-shopping-cart"></i>
                             </div>
-                            <div class="card-trend trend-down">
+                            <div class="card-trend" id="expense-trend">
                                 <i class="fas fa-arrow-down"></i>
-                                <span>8%</span>
+                                <span>0%</span>
                             </div>
                         </div>
                         <div class="card-title">รายจ่ายทั้งหมด</div>
@@ -1066,9 +1286,9 @@
                             <div class="card-icon">
                                 <i class="fas fa-wallet"></i>
                             </div>
-                            <div class="card-trend trend-up">
+                            <div class="card-trend" id="balance-trend">
                                 <i class="fas fa-arrow-up"></i>
-                                <span>4%</span>
+                                <span>0%</span>
                             </div>
                         </div>
                         <div class="card-title">ยอดคงเหลือ</div>
@@ -1081,9 +1301,9 @@
                             <div class="card-icon">
                                 <i class="fas fa-receipt"></i>
                             </div>
-                            <div class="card-trend trend-up">
+                            <div class="card-trend" id="transaction-trend">
                                 <i class="fas fa-arrow-up"></i>
-                                <span>15%</span>
+                                <span>0%</span>
                             </div>
                         </div>
                         <div class="card-title">จำนวนรายการ</div>
@@ -1287,6 +1507,49 @@
                     </div>
                     <div id="categories-list">
                         <!-- Categories will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile Page -->
+            <div class="page-content" id="profile-page" style="display: none;">
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <h2 id="profile-name">ผู้ใช้ MoneyTrack</h2>
+                        <p id="profile-email">example@email.com</p>
+                    </div>
+                    
+                    <div class="profile-info">
+                        <div class="profile-info-item">
+                            <span class="profile-info-label">วันที่ลงทะเบียน</span>
+                            <span class="profile-info-value" id="profile-registered">-</span>
+                        </div>
+                        <div class="profile-info-item">
+                            <span class="profile-info-label">จำนวนรายการทั้งหมด</span>
+                            <span class="profile-info-value" id="profile-transactions">0 รายการ</span>
+                        </div>
+                        <div class="profile-info-item">
+                            <span class="profile-info-label">ยอดเงินรวม</span>
+                            <span class="profile-info-value" id="profile-balance">0 ฿</span>
+                        </div>
+                        <div class="profile-info-item">
+                            <span class="profile-info-label">หมวดหมู่ทั้งหมด</span>
+                            <span class="profile-info-value" id="profile-categories">0 หมวดหมู่</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px; display: flex; gap: 15px;">
+                        <button class="btn btn-warning" id="reset-data-btn" style="flex: 1;">
+                            <i class="fas fa-redo"></i>
+                            <span>รีเซ็ตข้อมูล</span>
+                        </button>
+                        <button class="btn btn-danger" id="delete-account-btn" style="flex: 1;">
+                            <i class="fas fa-trash"></i>
+                            <span>ลบบัญชี</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1505,42 +1768,156 @@
 
     <script>
         // ===== GLOBAL VARIABLES =====
+        let currentUser = null;
         let transactions = [];
-        let categories = [
-            { name: 'อาหาร', type: 'expense', color: '#FF9800' },
-            { name: 'การเดินทาง', type: 'expense', color: '#2196F3' },
-            { name: 'เงินเดือน', type: 'income', color: '#4CAF50' },
-            { name: 'บันเทิง', type: 'expense', color: '#9C27B0' },
-            { name: 'การศึกษา', type: 'expense', color: '#009688' },
-            { name: 'สุขภาพ', type: 'expense', color: '#FF5722' },
-            { name: 'อื่นๆ', type: 'both', color: '#9E9E9E' }
-        ];
         let charts = {};
+        
+        const categories = [
+            { name: 'อาหาร', type: 'expense', color: '#FF6384' },
+            { name: 'การเดินทาง', type: 'expense', color: '#36A2EB' },
+            { name: 'เงินเดือน', type: 'income', color: '#4BC0C0' },
+            { name: 'บันเทิง', type: 'expense', color: '#FFCE56' },
+            { name: 'การศึกษา', type: 'expense', color: '#9966FF' },
+            { name: 'สุขภาพ', type: 'expense', color: '#FF9F40' },
+            { name: 'อื่นๆ', type: 'both', color: '#C9CBCF' }
+        ];
         
         // ===== INITIALIZATION =====
         document.addEventListener('DOMContentLoaded', function() {
             console.log('💰 MoneyTrack Application Started');
+            
+            // Check if user is logged in
+            checkLoginStatus();
+            
+            // Initialize event listeners
+            initializeEventListeners();
+        });
+        
+        // ===== AUTHENTICATION =====
+        function checkLoginStatus() {
+            const userData = localStorage.getItem('moneytrack_current_user');
+            if (userData) {
+                currentUser = JSON.parse(userData);
+                showMainApp();
+            } else {
+                showLoginPage();
+            }
+        }
+        
+        function showLoginPage() {
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('mobile-menu-btn').style.display = 'none';
+        }
+        
+        function showMainApp() {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+            document.getElementById('mobile-menu-btn').style.display = 'flex';
+            
+            // Update user info
+            updateUserInfo();
             
             // Set today's date
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('transaction-date').value = today;
             document.getElementById('modal-transaction-date').value = today;
             
-            // Initialize event listeners
-            initializeEventListeners();
-            
             // Load initial data
             loadInitialData();
             
             // Show welcome message
             setTimeout(() => {
-                showNotification('ยินดีต้อนรับสู่ MoneyTrack!', 'success');
+                showNotification('ยินดีต้อนรับกลับ, ' + currentUser.name + '!', 'success');
             }, 1000);
-        });
+        }
+        
+        function loginUser(email, password) {
+            const users = JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
+            
+            if (users[email] && users[email].password === password) {
+                currentUser = {
+                    email: email,
+                    name: users[email].name,
+                    registeredDate: users[email].registeredDate
+                };
+                
+                localStorage.setItem('moneytrack_current_user', JSON.stringify(currentUser));
+                showMainApp();
+                return true;
+            }
+            
+            return false;
+        }
+        
+        function registerUser(name, email, password) {
+            const users = JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
+            
+            if (users[email]) {
+                return false; // User already exists
+            }
+            
+            users[email] = {
+                name: name,
+                email: email,
+                password: password,
+                registeredDate: new Date().toISOString()
+            };
+            
+            localStorage.setItem('moneytrack_users', JSON.stringify(users));
+            
+            // Create empty transactions for this user
+            const userTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
+            userTransactions[email] = [];
+            localStorage.setItem('moneytrack_transactions', JSON.stringify(userTransactions));
+            
+            // Login the new user
+            return loginUser(email, password);
+        }
+        
+        function logoutUser() {
+            currentUser = null;
+            localStorage.removeItem('moneytrack_current_user');
+            showLoginPage();
+            showNotification('ออกจากระบบสำเร็จ', 'info');
+        }
+        
+        function updateUserInfo() {
+            if (!currentUser) return;
+            
+            document.getElementById('user-name').textContent = currentUser.name;
+            document.getElementById('user-email').textContent = currentUser.email;
+            document.getElementById('user-email-display').textContent = currentUser.email;
+            
+            const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+            document.getElementById('user-avatar').innerHTML = initials || '<i class="fas fa-user"></i>';
+            
+            // Profile page
+            document.getElementById('profile-name').textContent = currentUser.name;
+            document.getElementById('profile-email').textContent = currentUser.email;
+            document.getElementById('profile-registered').textContent = new Date(currentUser.registeredDate).toLocaleDateString('th-TH');
+        }
         
         // ===== EVENT LISTENERS =====
         function initializeEventListeners() {
             console.log('🔧 Initializing event listeners...');
+            
+            // Login/Register
+            document.getElementById('login-btn').addEventListener('click', handleLogin);
+            document.getElementById('register-btn').addEventListener('click', handleRegister);
+            document.getElementById('show-register').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'block';
+            });
+            document.getElementById('show-login').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('login-form').style.display = 'block';
+            });
+            
+            // Logout
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
             
             // Mobile menu button
             document.getElementById('mobile-menu-btn').addEventListener('click', toggleSidebar);
@@ -1607,13 +1984,13 @@
                     document.querySelectorAll('.chart-period').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     const period = this.getAttribute('data-period');
-                    if (this.closest('.chart-header').querySelector('.chart-title').textContent.includes('รายรับ vs รายจ่าย')) {
-                        changeChartPeriod(period);
-                    } else {
-                        changeCategoryPeriod(period);
-                    }
+                    updateCharts(period);
                 });
             });
+            
+            // Profile page buttons
+            document.getElementById('reset-data-btn').addEventListener('click', resetUserData);
+            document.getElementById('delete-account-btn').addEventListener('click', deleteAccount);
             
             // Keyboard shortcuts
             document.addEventListener('keydown', function(e) {
@@ -1651,6 +2028,44 @@
             console.log('✅ Event listeners initialized');
         }
         
+        function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (!email || !password) {
+                showNotification('กรุณากรอกอีเมลและรหัสผ่าน', 'error');
+                return;
+            }
+            
+            if (loginUser(email, password)) {
+                showNotification('เข้าสู่ระบบสำเร็จ', 'success');
+            } else {
+                showNotification('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'error');
+            }
+        }
+        
+        function handleRegister() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            
+            if (!name || !email || !password) {
+                showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showNotification('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', 'error');
+                return;
+            }
+            
+            if (registerUser(name, email, password)) {
+                showNotification('สมัครสมาชิกสำเร็จ', 'success');
+            } else {
+                showNotification('อีเมลนี้มีผู้ใช้แล้ว', 'error');
+            }
+        }
+        
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('active');
         }
@@ -1673,6 +2088,7 @@
                 'transactions': 'รายการทั้งหมด',
                 'add-transaction': 'เพิ่มรายการ',
                 'categories': 'หมวดหมู่',
+                'profile': 'โปรไฟล์',
                 'help': 'วิธีใช้',
                 'about': 'เกี่ยวกับ'
             };
@@ -1701,19 +2117,21 @@
                 case 'categories':
                     loadCategories();
                     break;
+                case 'profile':
+                    loadProfile();
+                    break;
             }
         }
         
         // ===== DATA LOADING =====
         function loadInitialData() {
-            console.log('Loading initial data...');
+            console.log('Loading initial data for user:', currentUser.email);
             
-            // Check if we have data in localStorage
-            const savedTransactions = localStorage.getItem('moneytrack_transactions');
-            if (savedTransactions) {
-                transactions = JSON.parse(savedTransactions);
-                console.log('Loaded transactions from localStorage:', transactions.length);
-            }
+            // Load transactions for current user
+            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
+            transactions = allTransactions[currentUser.email] || [];
+            
+            console.log('Loaded transactions:', transactions.length);
             
             // Load dashboard
             loadDashboard();
@@ -1728,17 +2146,48 @@
             initializeCharts();
         }
         
+        function loadProfile() {
+            if (!currentUser) return;
+            
+            // Update profile stats
+            const totalIncome = transactions.filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            const totalExpense = transactions.filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            const balance = totalIncome - totalExpense;
+            
+            document.getElementById('profile-transactions').textContent = transactions.length + ' รายการ';
+            document.getElementById('profile-balance').textContent = formatCurrency(balance) + ' ฿';
+            
+            // Count unique categories
+            const uniqueCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
+            document.getElementById('profile-categories').textContent = uniqueCategories.length + ' หมวดหมู่';
+        }
+        
         function loadSummary() {
             // Calculate summary from transactions
             let totalIncome = 0;
             let totalExpense = 0;
+            let currentMonthIncome = 0;
+            let currentMonthExpense = 0;
+            
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
             
             transactions.forEach(transaction => {
                 const amount = parseFloat(transaction.amount) || 0;
+                const transactionDate = new Date(transaction.date);
+                
                 if (transaction.type === 'income') {
                     totalIncome += amount;
+                    if (transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear) {
+                        currentMonthIncome += amount;
+                    }
                 } else {
                     totalExpense += amount;
+                    if (transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear) {
+                        currentMonthExpense += amount;
+                    }
                 }
             });
             
@@ -1750,6 +2199,15 @@
             document.getElementById('total-balance').textContent = formatCurrency(balance) + ' ฿';
             document.getElementById('transaction-total').textContent = transactions.length;
             document.getElementById('transaction-count').textContent = transactions.length;
+            
+            // Calculate trends (simple calculation)
+            const incomeTrend = transactions.length > 0 ? Math.min(Math.round((currentMonthIncome / totalIncome) * 100), 100) : 0;
+            const expenseTrend = transactions.length > 0 ? Math.min(Math.round((currentMonthExpense / totalExpense) * 100), 100) : 0;
+            
+            document.getElementById('income-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${incomeTrend}%</span>`;
+            document.getElementById('expense-trend').innerHTML = `<i class="fas fa-arrow-down"></i><span>${expenseTrend}%</span>`;
+            document.getElementById('balance-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${incomeTrend - expenseTrend}%</span>`;
+            document.getElementById('transaction-trend').innerHTML = `<i class="fas fa-arrow-up"></i><span>${transactions.length}%</span>`;
         }
         
         function loadRecentTransactions() {
@@ -1797,11 +2255,22 @@
         function loadCategories() {
             const container = document.getElementById('categories-list');
             
+            // Calculate category totals
+            const categoryTotals = {};
+            transactions.forEach(transaction => {
+                const amount = parseFloat(transaction.amount) || 0;
+                if (!categoryTotals[transaction.category]) {
+                    categoryTotals[transaction.category] = 0;
+                }
+                categoryTotals[transaction.category] += amount;
+            });
+            
             let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">';
             
             categories.forEach(category => {
                 // Count transactions in this category
                 const count = transactions.filter(t => t.category === category.name).length;
+                const total = categoryTotals[category.name] || 0;
                 
                 html += `
                     <div style="background: white; border-radius: var(--radius); padding: 20px; border-left: 5px solid ${category.color}; box-shadow: var(--shadow);">
@@ -1819,6 +2288,7 @@
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 14px; color: var(--gray);">${count} รายการ</span>
+                            <span style="font-weight: 600;">${formatCurrency(total)} ฿</span>
                         </div>
                     </div>
                 `;
@@ -1831,7 +2301,6 @@
         
         function updateCategoryFilter() {
             const filter = document.getElementById('filter-category');
-            const recentFilter = document.getElementById('filter-category');
             
             // Get unique categories from transactions
             const uniqueCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
@@ -2010,6 +2479,227 @@
             });
         }
         
+        // ===== CHART FUNCTIONS =====
+        function initializeCharts() {
+            updateCharts('month');
+        }
+        
+        function updateCharts(period) {
+            updateIncomeExpenseChart(period);
+            updateCategoryChart(period);
+        }
+        
+        function updateIncomeExpenseChart(period) {
+            const ctx = document.getElementById('incomeExpenseChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            if (charts.incomeExpense) {
+                charts.incomeExpense.destroy();
+            }
+            
+            // Prepare data based on period
+            let labels = [];
+            let incomeData = [];
+            let expenseData = [];
+            
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            
+            if (period === 'month') {
+                // Last 6 months
+                for (let i = 5; i >= 0; i--) {
+                    const month = new Date(currentYear, currentMonth - i, 1);
+                    const monthName = month.toLocaleDateString('th-TH', { month: 'short' });
+                    labels.push(monthName);
+                    
+                    // Calculate income and expense for this month
+                    const monthIncome = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getMonth() === month.getMonth() && 
+                                   date.getFullYear() === month.getFullYear() &&
+                                   t.type === 'income';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    const monthExpense = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getMonth() === month.getMonth() && 
+                                   date.getFullYear() === month.getFullYear() &&
+                                   t.type === 'expense';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    incomeData.push(monthIncome);
+                    expenseData.push(monthExpense);
+                }
+            } else {
+                // Last 6 years
+                for (let i = 5; i >= 0; i--) {
+                    const year = currentYear - i;
+                    labels.push(year.toString());
+                    
+                    // Calculate income and expense for this year
+                    const yearIncome = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getFullYear() === year && t.type === 'income';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    const yearExpense = transactions
+                        .filter(t => {
+                            const date = new Date(t.date);
+                            return date.getFullYear() === year && t.type === 'expense';
+                        })
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    
+                    incomeData.push(yearIncome);
+                    expenseData.push(yearExpense);
+                }
+            }
+            
+            charts.incomeExpense = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'รายรับ',
+                            data: incomeData,
+                            backgroundColor: 'rgba(6, 214, 160, 0.8)',
+                            borderColor: 'rgba(6, 214, 160, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'รายจ่าย',
+                            data: expenseData,
+                            backgroundColor: 'rgba(239, 71, 111, 0.8)',
+                            borderColor: 'rgba(239, 71, 111, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value) + ' บาท';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateCategoryChart(period) {
+            const ctx = document.getElementById('categoryChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            if (charts.category) {
+                charts.category.destroy();
+            }
+            
+            // Filter transactions by period
+            const now = new Date();
+            let filteredTransactions = transactions;
+            
+            if (period === 'month') {
+                filteredTransactions = transactions.filter(t => {
+                    const date = new Date(t.date);
+                    return date.getMonth() === now.getMonth() && 
+                           date.getFullYear() === now.getFullYear() &&
+                           t.type === 'expense';
+                });
+            } else {
+                filteredTransactions = transactions.filter(t => {
+                    const date = new Date(t.date);
+                    return date.getFullYear() === now.getFullYear() && t.type === 'expense';
+                });
+            }
+            
+            // Calculate category totals
+            const categoryTotals = {};
+            filteredTransactions.forEach(transaction => {
+                const amount = parseFloat(transaction.amount) || 0;
+                if (!categoryTotals[transaction.category]) {
+                    categoryTotals[transaction.category] = 0;
+                }
+                categoryTotals[transaction.category] += amount;
+            });
+            
+            // Prepare data for chart
+            const labels = [];
+            const data = [];
+            const backgroundColors = [];
+            
+            categories.forEach(category => {
+                if (categoryTotals[category.name] && categoryTotals[category.name] > 0) {
+                    labels.push(category.name);
+                    data.push(categoryTotals[category.name]);
+                    backgroundColors.push(category.color);
+                }
+            });
+            
+            // If no data, show message
+            if (data.length === 0) {
+                ctx.parentElement.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                        <div style="text-align: center;">
+                            <i class="fas fa-chart-pie" style="font-size: 48px; color: var(--gray); opacity: 0.5;"></i>
+                            <p style="margin-top: 10px; color: var(--gray);">ไม่มีข้อมูลหมวดหมู่</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            charts.category = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${context.label}: ${formatCurrency(value)} ฿ (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
         // ===== TRANSACTION MANAGEMENT =====
         function showAddTransactionModal() {
             const modal = document.getElementById('add-transaction-modal');
@@ -2128,11 +2818,47 @@
         }
         
         function saveToLocalStorage() {
-            localStorage.setItem('moneytrack_transactions', JSON.stringify(transactions));
-            console.log('Saved transactions to localStorage:', transactions.length);
+            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
+            allTransactions[currentUser.email] = transactions;
+            localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+            
+            console.log('Saved transactions for user:', currentUser.email, transactions.length);
             
             // Update category filter options
             updateCategoryFilter();
+        }
+        
+        // ===== PROFILE MANAGEMENT =====
+        function resetUserData() {
+            if (!confirm('คุณแน่ใจต้องการรีเซ็ตข้อมูลทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
+                return;
+            }
+            
+            transactions = [];
+            saveToLocalStorage();
+            
+            showNotification('รีเซ็ตข้อมูลสำเร็จ', 'success');
+            refreshData();
+        }
+        
+        function deleteAccount() {
+            if (!confirm('คุณแน่ใจต้องการลบบัญชีนี้? การดำเนินการนี้จะลบข้อมูลทั้งหมดและไม่สามารถย้อนกลับได้')) {
+                return;
+            }
+            
+            // Remove user from users list
+            const users = JSON.parse(localStorage.getItem('moneytrack_users') || '{}');
+            delete users[currentUser.email];
+            localStorage.setItem('moneytrack_users', JSON.stringify(users));
+            
+            // Remove user transactions
+            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
+            delete allTransactions[currentUser.email];
+            localStorage.setItem('moneytrack_transactions', JSON.stringify(allTransactions));
+            
+            // Logout
+            logoutUser();
+            showNotification('ลบบัญชีสำเร็จ', 'info');
         }
         
         // ===== UTILITY FUNCTIONS =====
@@ -2140,10 +2866,8 @@
             showNotification('กำลังโหลดข้อมูลใหม่...', 'info');
             
             // Reload from localStorage
-            const savedTransactions = localStorage.getItem('moneytrack_transactions');
-            if (savedTransactions) {
-                transactions = JSON.parse(savedTransactions);
-            }
+            const allTransactions = JSON.parse(localStorage.getItem('moneytrack_transactions') || '{}');
+            transactions = allTransactions[currentUser.email] || [];
             
             // Update based on current page
             const currentPage = document.querySelector('.page-content[style*="block"]')?.id;
@@ -2153,6 +2877,8 @@
                 loadTransactions();
             } else if (currentPage === 'categories-page') {
                 loadCategories();
+            } else if (currentPage === 'profile-page') {
+                loadProfile();
             }
             
             showNotification('อัพเดทข้อมูลสำเร็จ', 'success');
@@ -2186,7 +2912,7 @@
             const link = document.createElement('a');
             
             link.href = url;
-            link.download = `MoneyTrack_${new Date().toISOString().split('T')[0]}.csv`;
+            link.download = `MoneyTrack_${currentUser.email}_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -2256,109 +2982,6 @@
         
         function setupTransactionForm() {
             // Nothing special needed for now
-        }
-        
-        function initializeCharts() {
-            // Create demo charts
-            const incomeExpenseCtx = document.getElementById('incomeExpenseChart');
-            if (incomeExpenseCtx) {
-                // Destroy existing chart if it exists
-                if (charts.incomeExpense) {
-                    charts.incomeExpense.destroy();
-                }
-                
-                // Create sample data based on actual transactions
-                const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.'];
-                const incomeData = [25000, 30000, 28000, 32000, 35000, 38000];
-                const expenseData = [22000, 24000, 26000, 28000, 30000, 32000];
-                
-                charts.incomeExpense = new Chart(incomeExpenseCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: months,
-                        datasets: [
-                            {
-                                label: 'รายรับ',
-                                data: incomeData,
-                                backgroundColor: 'rgba(6, 214, 160, 0.8)',
-                                borderColor: 'rgba(6, 214, 160, 1)',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'รายจ่าย',
-                                data: expenseData,
-                                backgroundColor: 'rgba(239, 71, 111, 0.8)',
-                                borderColor: 'rgba(239, 71, 111, 1)',
-                                borderWidth: 1
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return formatCurrency(value) + ' บาท';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            
-            const categoryCtx = document.getElementById('categoryChart');
-            if (categoryCtx) {
-                // Destroy existing chart if it exists
-                if (charts.category) {
-                    charts.category.destroy();
-                }
-                
-                charts.category = new Chart(categoryCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['อาหาร', 'การเดินทาง', 'บันเทิง', 'เสื้อผ้า', 'การศึกษา', 'สุขภาพ', 'อื่นๆ'],
-                        datasets: [{
-                            data: [35, 25, 15, 10, 8, 5, 2],
-                            backgroundColor: [
-                                '#FF6384',
-                                '#36A2EB',
-                                '#FFCE56',
-                                '#4BC0C0',
-                                '#9966FF',
-                                '#FF9F40',
-                                '#C9CBCF'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'right',
-                            }
-                        }
-                    }
-                });
-            }
-        }
-        
-        function changeChartPeriod(period) {
-            showNotification('เปลี่ยนช่วงเวลาเป็น: ' + (period === 'month' ? 'เดือน' : 'ปี'), 'info');
-        }
-        
-        function changeCategoryPeriod(period) {
-            showNotification('เปลี่ยนช่วงเวลาหมวดหมู่เป็น: ' + (period === 'month' ? 'เดือน' : 'ปี'), 'info');
         }
         
         console.log('✅ MoneyTrack application loaded successfully!');
