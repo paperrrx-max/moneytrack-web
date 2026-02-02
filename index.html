@@ -3448,93 +3448,359 @@
             document.getElementById('credits-modal').style.display = 'flex';
         }
         
-        function hideCreditsModal() {
+       function hideCreditsModal() {
             document.getElementById('credits-modal').style.display = 'none';
         }
         
-        // ===== INITIALIZATION =====
-        document.addEventListener('DOMContentLoaded', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('transaction-date').value = today;
+        // ===== APP EVENT LISTENERS SETUP =====
+        function setupAppEventListeners() {
+            // ===== APP NAVIGATION EVENTS =====
+            document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    showPage(page);
+                    
+                    if (window.innerWidth <= 992) {
+                        document.getElementById('sidebar').classList.remove('active');
+                    }
+                });
+            });
             
-            // ตรวจสอบว่ามี session อยู่หรือไม่
-            const session = getSession();
-            if (session) {
-                console.log('Found session, attempting auto-login...');
-                
-                // แสดง loading screen
-                document.getElementById('login-page').style.display = 'flex';
-                const loginContainer = document.querySelector('.login-container');
-                loginContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <div class="login-logo-icon" style="margin: 0 auto 20px;">
-                            <i class="fas fa-spinner fa-spin"></i>
-                        </div>
-                        <h1 style="color: var(--dark); margin-bottom: 10px;">MoneyTrack</h1>
-                        <p style="color: var(--gray);">กำลังเข้าสู่ระบบอัตโนมัติ...</p>
-                    </div>
-                `;
-                
-                // พยายามล็อกอินด้วย session
-                setTimeout(() => {
-                    loginUser(session.username, '', true)
-                        .then(user => {
-                            showNotification('เข้าสู่ระบบอัตโนมัติสำเร็จ', 'success');
-                            showApp();
-                        })
-                        .catch(error => {
-                            console.log('Auto-login failed:', error);
-                            clearSession();
-                            // รีเซ็ตหน้า login
-                            loginContainer.innerHTML = `
-                                <div class="login-logo">
-                                    <div class="login-logo-icon">
-                                        <i class="fas fa-wallet"></i>
-                                    </div>
-                                    <h1>MoneyTrack</h1>
-                                    <p>แอปบริหารการเงินส่วนบุคคล</p>
-                                </div>
-                                
-                                <form class="login-form" id="login-form">
-                                    <div class="form-group">
-                                        <label for="login-username">ชื่อผู้ใช้</label>
-                                        <input type="text" id="login-username" class="form-input" placeholder="กรอกชื่อผู้ใช้" required>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="login-password">รหัสผ่าน</label>
-                                        <input type="password" id="login-password" class="form-input" placeholder="กรอกรหัสผ่าน" required>
-                                    </div>
-                                    
-                                    <div class="login-options">
-                                        <div class="remember-me">
-                                            <input type="checkbox" id="remember-me">
-                                            <label for="remember-me">จำการเข้าสู่ระบบ</label>
-                                        </div>
-                                        <a href="#" class="forgot-password">ลืมรหัสผ่าน?</a>
-                                    </div>
-                                    
-                                    <button type="submit" class="login-btn" id="login-btn">
-                                        <span>เข้าสู่ระบบ</span>
-                                    </button>
-                                </form>
-                                
-                                <div class="register-link">
-                                    ยังไม่มีบัญชีผู้ใช้? <a href="#" id="register-link">สมัครสมาชิก</a>
-                                </div>
-                            `;
-                            // Re-attach event listeners
-                            setupLoginPageEvents();
-                        });
-                }, 1000);
-            } else {
-                // ไม่มี session, แสดงหน้า login ปกติ
-                showLoginPage();
+            // ===== TRANSACTION FORM EVENTS =====
+            const transactionForm = document.getElementById('transaction-form');
+            if (transactionForm) {
+                transactionForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    saveTransaction();
+                });
             }
             
-            function setupLoginPageEvents() {
-                // ===== LOGIN PAGE EVENTS =====
-                document.getElementById('login-form').addEventListener('submit', function(e) {
+            const modalTransactionForm = document.getElementById('modal-transaction-form');
+            if (modalTransactionForm) {
+                modalTransactionForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    saveTransactionFromModal();
+                });
+            }
+            
+            // ===== BUTTON EVENTS =====
+            const userSwitchBtn = document.getElementById('user-switch-btn');
+            if (userSwitchBtn) {
+                userSwitchBtn.addEventListener('click', function() {
+                    showSwitchUserModal();
+                });
+            }
+            
+            const addTransactionBtn = document.getElementById('add-transaction-btn');
+            if (addTransactionBtn) {
+                addTransactionBtn.addEventListener('click', function() {
+                    showAddTransactionModal();
+                });
+            }
+            
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    loadUserData();
+                    showNotification('รีเฟรชข้อมูลสำเร็จ', 'success');
+                });
+            }
+            
+            const viewAllBtn = document.getElementById('view-all-btn');
+            if (viewAllBtn) {
+                viewAllBtn.addEventListener('click', function() {
+                    showPage('transactions');
+                });
+            }
+            
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    logout();
+                });
+            }
+            
+            // ===== FILTER EVENTS =====
+            const recentFilter = document.getElementById('recent-filter-type');
+            if (recentFilter) {
+                recentFilter.addEventListener('change', loadRecentTransactions);
+            }
+            
+            const filterType = document.getElementById('filter-type');
+            if (filterType) {
+                filterType.addEventListener('change', loadTransactions);
+            }
+            
+            const filterCategory = document.getElementById('filter-category');
+            if (filterCategory) {
+                filterCategory.addEventListener('change', loadTransactions);
+            }
+            
+            const filterDate = document.getElementById('filter-date');
+            if (filterDate) {
+                filterDate.addEventListener('change', loadTransactions);
+            }
+            
+            // ===== MODAL CLOSE EVENTS =====
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            if (modalCloseBtn) {
+                modalCloseBtn.addEventListener('click', hideAddTransactionModal);
+            }
+            
+            const modalCancelBtn = document.getElementById('modal-cancel-btn');
+            if (modalCancelBtn) {
+                modalCancelBtn.addEventListener('click', hideAddTransactionModal);
+            }
+            
+            const modalSaveBtn = document.getElementById('modal-save-btn');
+            if (modalSaveBtn) {
+                modalSaveBtn.addEventListener('click', saveTransactionFromModal);
+            }
+            
+            const addUserModalCloseBtn = document.getElementById('add-user-modal-close-btn');
+            if (addUserModalCloseBtn) {
+                addUserModalCloseBtn.addEventListener('click', hideAddUserModal);
+            }
+            
+            const addUserCancelBtn = document.getElementById('add-user-cancel-btn');
+            if (addUserCancelBtn) {
+                addUserCancelBtn.addEventListener('click', hideAddUserModal);
+            }
+            
+            const switchUserModalCloseBtn = document.getElementById('switch-user-modal-close-btn');
+            if (switchUserModalCloseBtn) {
+                switchUserModalCloseBtn.addEventListener('click', hideSwitchUserModal);
+            }
+            
+            const switchUserCancelBtn = document.getElementById('switch-user-cancel-btn');
+            if (switchUserCancelBtn) {
+                switchUserCancelBtn.addEventListener('click', hideSwitchUserModal);
+            }
+            
+            const switchUserLogoutBtn = document.getElementById('switch-user-logout-btn');
+            if (switchUserLogoutBtn) {
+                switchUserLogoutBtn.addEventListener('click', function() {
+                    hideSwitchUserModal();
+                    logout();
+                });
+            }
+            
+            const creditsModalCloseBtn = document.getElementById('credits-modal-close-btn');
+            if (creditsModalCloseBtn) {
+                creditsModalCloseBtn.addEventListener('click', hideCreditsModal);
+            }
+            
+            // ===== CREDITS MODAL =====
+            const githubBtn = document.getElementById('github-btn');
+            if (githubBtn) {
+                githubBtn.addEventListener('click', function() {
+                    window.open('https://github.com/username/MoneyTrack', '_blank');
+                });
+            }
+            
+            // ===== USER MANAGEMENT EVENTS =====
+            const backToAppBtn = document.getElementById('back-to-app-btn');
+            if (backToAppBtn) {
+                backToAppBtn.addEventListener('click', function() {
+                    showApp();
+                });
+            }
+            
+            const addUserBtn = document.getElementById('add-user-btn');
+            if (addUserBtn) {
+                addUserBtn.addEventListener('click', function() {
+                    showAddUserModal();
+                });
+            }
+            
+            const addUserSaveBtn = document.getElementById('add-user-save-btn');
+            if (addUserSaveBtn) {
+                addUserSaveBtn.addEventListener('click', function() {
+                    const username = document.getElementById('new-user-username').value.trim();
+                    const email = document.getElementById('new-user-email').value.trim();
+                    const password = document.getElementById('new-user-password').value;
+                    const confirmPassword = document.getElementById('new-user-confirm-password').value;
+                    
+                    if (!username || !email || !password || !confirmPassword) {
+                        showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                        return;
+                    }
+                    
+                    if (password.length < 6) {
+                        showNotification('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร', 'error');
+                        return;
+                    }
+                    
+                    if (password !== confirmPassword) {
+                        showNotification('รหัสผ่านไม่ตรงกัน', 'error');
+                        return;
+                    }
+                    
+                    registerUser(username, email, password)
+                        .then(user => {
+                            showNotification('เพิ่มผู้ใช้สำเร็จ', 'success');
+                            hideAddUserModal();
+                            loadUsersList();
+                        })
+                        .catch(error => {
+                            showNotification(error, 'error');
+                        });
+                });
+            }
+            
+            // ===== DATABASE EVENTS =====
+            const backupBtn = document.getElementById('backup-btn');
+            if (backupBtn) {
+                backupBtn.addEventListener('click', function() {
+                    backupUserData()
+                        .then(() => {
+                            showNotification('สำรองข้อมูลสำเร็จ', 'success');
+                        })
+                        .catch(error => {
+                            showNotification('เกิดข้อผิดพลาดในการสำรองข้อมูล', 'error');
+                        });
+                });
+            }
+            
+            const clearDbBtn = document.getElementById('clear-db-btn');
+            if (clearDbBtn) {
+                clearDbBtn.addEventListener('click', function() {
+                    if (confirm('คุณแน่ใจต้องการล้างฐานข้อมูลทั้งหมด?\nข้อมูลทั้งหมดของคุณจะถูกลบไปถาวร!')) {
+                        clearUserTransactions()
+                            .then(() => {
+                                showNotification('ล้างฐานข้อมูลสำเร็จ', 'success');
+                                loadUserData();
+                            })
+                            .catch(error => {
+                                showNotification('เกิดข้อผิดพลาดในการล้างข้อมูล', 'error');
+                            });
+                    }
+                });
+            }
+            
+            // ===== EXPORT FUNCTIONALITY =====
+            const exportAllBtn = document.getElementById('export-all-btn');
+            if (exportAllBtn) {
+                exportAllBtn.addEventListener('click', function() {
+                    if (transactions.length === 0) {
+                        showNotification('ไม่มีข้อมูลที่จะส่งออก', 'warning');
+                        return;
+                    }
+                    
+                    const headers = ['วันที่', 'ประเภท', 'หมวดหมู่', 'รายการ', 'จำนวนเงิน', 'หมายเหตุ'];
+                    const csvRows = [headers.join(',')];
+                    
+                    transactions.forEach(transaction => {
+                        const row = [
+                            `"${new Date(transaction.date).toLocaleDateString('th-TH')}"`,
+                            `"${transaction.type === 'income' ? 'รายรับ' : 'รายจ่าย'}"`,
+                            `"${transaction.category || ''}"`,
+                            `"${transaction.description || ''}"`,
+                            transaction.amount,
+                            `"${transaction.note || ''}"`
+                        ];
+                        csvRows.push(row.join(','));
+                    });
+                    
+                    const csvString = csvRows.join('\n');
+                    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `MoneyTrack_${currentUser.username}_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showNotification('ส่งออกข้อมูลสำเร็จ', 'success');
+                });
+            }
+            
+            // ===== MOBILE MENU =====
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    const sidebar = document.getElementById('sidebar');
+                    sidebar.classList.toggle('active');
+                });
+            }
+            
+            // ===== WELCOME BANNER =====
+            const welcomeCloseBtn = document.getElementById('welcome-close');
+            if (welcomeCloseBtn) {
+                welcomeCloseBtn.addEventListener('click', function() {
+                    document.getElementById('welcome-banner').style.display = 'none';
+                });
+            }
+            
+            // ===== USERS PAGE EVENTS =====
+            const addNewUserBtn = document.getElementById('add-new-user-btn');
+            if (addNewUserBtn) {
+                addNewUserBtn.addEventListener('click', function() {
+                    showAddUserModal();
+                });
+            }
+            
+            const switchUserBtn = document.getElementById('switch-user-btn');
+            if (switchUserBtn) {
+                switchUserBtn.addEventListener('click', function() {
+                    showSwitchUserModal();
+                });
+            }
+            
+            const deleteAccountBtn = document.getElementById('delete-account-btn');
+            if (deleteAccountBtn) {
+                deleteAccountBtn.addEventListener('click', function() {
+                    if (confirm('คุณแน่ใจต้องการลบบัญชีผู้ใช้ปัจจุบัน?\nข้อมูลทั้งหมดจะถูกลบไปถาวร!')) {
+                        deleteUser(currentUser.username)
+                            .then(() => {
+                                showNotification('ลบบัญชีผู้ใช้สำเร็จ', 'success');
+                                logout();
+                            })
+                            .catch(error => {
+                                showNotification(error, 'error');
+                            });
+                    }
+                });
+            }
+            
+            // ===== CATEGORIES PAGE =====
+            const addCategoryBtn = document.getElementById('add-category-btn');
+            if (addCategoryBtn) {
+                addCategoryBtn.addEventListener('click', function() {
+                    showNotification('คุณสามารถเพิ่มหมวดหมู่ได้จาก dropdown ในหน้าบันทึกรายการ', 'info');
+                });
+            }
+            
+            // ===== CLOSE MODAL ON OVERLAY CLICK =====
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.style.display = 'none';
+                    }
+                });
+            });
+            
+            // เพิ่ม event listeners สำหรับปุ่มเพิ่มรายการใน empty state
+            document.addEventListener('click', function(e) {
+                if (e.target && (e.target.id === 'add-first-transaction' || 
+                    e.target.closest('#add-first-transaction') || 
+                    e.target.id === 'add-first-transaction-2' || 
+                    e.target.closest('#add-first-transaction-2'))) {
+                    showAddTransactionModal();
+                }
+            });
+        }
+        
+        function setupLoginPageEvents() {
+            // ===== LOGIN PAGE EVENTS =====
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     
                     const username = document.getElementById('login-username').value.trim();
@@ -3554,6 +3820,7 @@
                         .then(user => {
                             showNotification('เข้าสู่ระบบสำเร็จ', 'success');
                             showApp();
+                            setupAfterLogin();
                         })
                         .catch(error => {
                             showNotification(error, 'error');
@@ -3563,19 +3830,32 @@
                             loginBtn.innerHTML = '<span>เข้าสู่ระบบ</span>';
                         });
                 });
-                
-                // ===== REGISTER PAGE EVENTS =====
-                document.getElementById('register-link').addEventListener('click', function(e) {
+            }
+            
+            // ===== REGISTER PAGE EVENTS =====
+            const registerLink = document.getElementById('register-link');
+            if (registerLink) {
+                registerLink.addEventListener('click', function(e) {
                     e.preventDefault();
                     showRegisterPage();
+                    setupRegisterPageEvents();
                 });
-                
-                document.getElementById('login-link').addEventListener('click', function(e) {
+            }
+            
+            const loginLink = document.getElementById('login-link');
+            if (loginLink) {
+                loginLink.addEventListener('click', function(e) {
                     e.preventDefault();
                     showLoginPage();
+                    setupLoginPageEvents();
                 });
-                
-                document.getElementById('register-form').addEventListener('submit', function(e) {
+            }
+        }
+        
+        function setupRegisterPageEvents() {
+            const registerForm = document.getElementById('register-form');
+            if (registerForm) {
+                registerForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     
                     const username = document.getElementById('register-username').value.trim();
@@ -3608,6 +3888,7 @@
                             document.getElementById('login-username').value = username;
                             document.getElementById('login-password').value = '';
                             showLoginPage();
+                            setupLoginPageEvents();
                         })
                         .catch(error => {
                             showNotification(error, 'error');
@@ -3618,242 +3899,117 @@
                         });
                 });
             }
+        }
+        
+        function setupAfterLogin() {
+            // ตั้งค่า event listeners อีกครั้งหลังล็อกอิน
+            setupAppEventListeners();
             
-            // เรียกใช้ครั้งแรก
-            setupLoginPageEvents();
+            // แก้ปัญหา dynamic buttons
+            setTimeout(() => {
+                const addFirstTransaction1 = document.getElementById('add-first-transaction');
+                if (addFirstTransaction1) {
+                    addFirstTransaction1.addEventListener('click', showAddTransactionModal);
+                }
+                
+                const addFirstTransaction2 = document.getElementById('add-first-transaction-2');
+                if (addFirstTransaction2) {
+                    addFirstTransaction2.addEventListener('click', showAddTransactionModal);
+                }
+            }, 100);
+        }
+
+        // ===== INITIALIZATION =====
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            const transactionDate = document.getElementById('transaction-date');
+            if (transactionDate) {
+                transactionDate.value = today;
+            }
             
-            // ===== APP NAVIGATION EVENTS =====
-            document.querySelectorAll('.nav-item[data-page]').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const page = this.getAttribute('data-page');
-                    showPage(page);
+            // ตั้งค่า event listeners พื้นฐาน
+            setupAppEventListeners();
+            
+            // ตรวจสอบว่ามี session อยู่หรือไม่
+            const session = getSession();
+            if (session) {
+                console.log('Found session, attempting auto-login...');
+                
+                // แสดง loading screen
+                document.getElementById('login-page').style.display = 'flex';
+                const loginContainer = document.querySelector('.login-container');
+                loginContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div class="login-logo-icon" style="margin: 0 auto 20px;">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <h1 style="color: var(--dark); margin-bottom: 10px;">MoneyTrack</h1>
+                        <p style="color: var(--gray);">กำลังเข้าสู่ระบบอัตโนมัติ...</p>
+                    </div>
+                `;
+                
+                // พยายามล็อกอินด้วย session
+                setTimeout(() => {
+                    loginUser(session.username, '', true)
+                        .then(user => {
+                            showNotification('เข้าสู่ระบบอัตโนมัติสำเร็จ', 'success');
+                            showApp();
+                            setupAfterLogin();
+                        })
+                        .catch(error => {
+                            console.log('Auto-login failed:', error);
+                            clearSession();
+                            resetLoginPage();
+                        });
+                }, 1000);
+            } else {
+                // ไม่มี session, แสดงหน้า login ปกติ
+                showLoginPage();
+                setupLoginPageEvents();
+            }
+            
+            function resetLoginPage() {
+                const loginContainer = document.querySelector('.login-container');
+                loginContainer.innerHTML = `
+                    <div class="login-logo">
+                        <div class="login-logo-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <h1>MoneyTrack</h1>
+                        <p>แอปบริหารการเงินส่วนบุคคล</p>
+                    </div>
                     
-                    if (window.innerWidth <= 992) {
-                        document.getElementById('sidebar').classList.remove('active');
-                    }
-                });
-            });
-            
-            // ===== TRANSACTION FORM EVENTS =====
-            document.getElementById('transaction-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                saveTransaction();
-            });
-            
-            document.getElementById('modal-transaction-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                saveTransactionFromModal();
-            });
-            
-            // ===== BUTTON EVENTS =====
-            document.getElementById('user-switch-btn').addEventListener('click', function() {
-                showSwitchUserModal();
-            });
-            
-            document.getElementById('add-transaction-btn').addEventListener('click', function() {
-                showAddTransactionModal();
-            });
-            
-            document.getElementById('add-first-transaction').addEventListener('click', function() {
-                showAddTransactionModal();
-            });
-            
-            document.getElementById('add-first-transaction-2').addEventListener('click', function() {
-                showAddTransactionModal();
-            });
-            
-            document.getElementById('refresh-btn').addEventListener('click', function() {
-                loadUserData();
-                showNotification('รีเฟรชข้อมูลสำเร็จ', 'success');
-            });
-            
-            document.getElementById('view-all-btn').addEventListener('click', function() {
-                showPage('transactions');
-            });
-            
-            document.getElementById('logout-btn').addEventListener('click', function(e) {
-                e.preventDefault();
-                logout();
-            });
-            
-            // ===== FILTER EVENTS =====
-            document.getElementById('recent-filter-type').addEventListener('change', loadRecentTransactions);
-            document.getElementById('filter-type').addEventListener('change', loadTransactions);
-            document.getElementById('filter-category').addEventListener('change', loadTransactions);
-            document.getElementById('filter-date').addEventListener('change', loadTransactions);
-            
-            // ===== MODAL CLOSE EVENTS =====
-            document.getElementById('modal-close-btn').addEventListener('click', hideAddTransactionModal);
-            document.getElementById('modal-cancel-btn').addEventListener('click', hideAddTransactionModal);
-            document.getElementById('modal-save-btn').addEventListener('click', saveTransactionFromModal);
-            
-            document.getElementById('add-user-modal-close-btn').addEventListener('click', hideAddUserModal);
-            document.getElementById('add-user-cancel-btn').addEventListener('click', hideAddUserModal);
-            
-            document.getElementById('switch-user-modal-close-btn').addEventListener('click', hideSwitchUserModal);
-            document.getElementById('switch-user-cancel-btn').addEventListener('click', hideSwitchUserModal);
-            
-            document.getElementById('switch-user-logout-btn').addEventListener('click', function() {
-                hideSwitchUserModal();
-                logout();
-            });
-            
-            document.getElementById('credits-modal-close-btn').addEventListener('click', hideCreditsModal);
-            
-            // ===== CREDITS MODAL =====
-            document.getElementById('github-btn').addEventListener('click', function() {
-                window.open('https://github.com/username/MoneyTrack', '_blank');
-            });
-            
-            // ===== USER MANAGEMENT EVENTS =====
-            document.getElementById('back-to-app-btn').addEventListener('click', function() {
-                showApp();
-            });
-            
-            document.getElementById('add-user-btn').addEventListener('click', function() {
-                showAddUserModal();
-            });
-            
-            document.getElementById('add-user-save-btn').addEventListener('click', function() {
-                const username = document.getElementById('new-user-username').value.trim();
-                const email = document.getElementById('new-user-email').value.trim();
-                const password = document.getElementById('new-user-password').value;
-                const confirmPassword = document.getElementById('new-user-confirm-password').value;
-                
-                if (!username || !email || !password || !confirmPassword) {
-                    showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
-                    return;
-                }
-                
-                if (password.length < 6) {
-                    showNotification('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร', 'error');
-                    return;
-                }
-                
-                if (password !== confirmPassword) {
-                    showNotification('รหัสผ่านไม่ตรงกัน', 'error');
-                    return;
-                }
-                
-                registerUser(username, email, password)
-                    .then(user => {
-                        showNotification('เพิ่มผู้ใช้สำเร็จ', 'success');
-                        hideAddUserModal();
-                        loadUsersList();
-                    })
-                    .catch(error => {
-                        showNotification(error, 'error');
-                    });
-            });
-            
-            // ===== DATABASE EVENTS =====
-            document.getElementById('backup-btn').addEventListener('click', function() {
-                backupUserData()
-                    .then(() => {
-                        showNotification('สำรองข้อมูลสำเร็จ', 'success');
-                    })
-                    .catch(error => {
-                        showNotification('เกิดข้อผิดพลาดในการสำรองข้อมูล', 'error');
-                    });
-            });
-            
-            document.getElementById('clear-db-btn').addEventListener('click', function() {
-                if (confirm('คุณแน่ใจต้องการล้างฐานข้อมูลทั้งหมด?\nข้อมูลทั้งหมดของคุณจะถูกลบไปถาวร!')) {
-                    clearUserTransactions()
-                        .then(() => {
-                            showNotification('ล้างฐานข้อมูลสำเร็จ', 'success');
-                            loadUserData();
-                        })
-                        .catch(error => {
-                            showNotification('เกิดข้อผิดพลาดในการล้างข้อมูล', 'error');
-                        });
-                }
-            });
-            
-            // ===== EXPORT FUNCTIONALITY =====
-            document.getElementById('export-all-btn').addEventListener('click', function() {
-                if (transactions.length === 0) {
-                    showNotification('ไม่มีข้อมูลที่จะส่งออก', 'warning');
-                    return;
-                }
-                
-                const headers = ['วันที่', 'ประเภท', 'หมวดหมู่', 'รายการ', 'จำนวนเงิน', 'หมายเหตุ'];
-                const csvRows = [headers.join(',')];
-                
-                transactions.forEach(transaction => {
-                    const row = [
-                        `"${new Date(transaction.date).toLocaleDateString('th-TH')}"`,
-                        `"${transaction.type === 'income' ? 'รายรับ' : 'รายจ่าย'}"`,
-                        `"${transaction.category || ''}"`,
-                        `"${transaction.description || ''}"`,
-                        transaction.amount,
-                        `"${transaction.note || ''}"`
-                    ];
-                    csvRows.push(row.join(','));
-                });
-                
-                const csvString = csvRows.join('\n');
-                const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `MoneyTrack_${currentUser.username}_${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                
-                showNotification('ส่งออกข้อมูลสำเร็จ', 'success');
-            });
-            
-            // ===== MOBILE MENU =====
-            document.getElementById('mobile-menu-btn').addEventListener('click', function() {
-                const sidebar = document.getElementById('sidebar');
-                sidebar.classList.toggle('active');
-            });
-            
-            // ===== WELCOME BANNER =====
-            document.getElementById('welcome-close').addEventListener('click', function() {
-                document.getElementById('welcome-banner').style.display = 'none';
-            });
-            
-            // ===== USERS PAGE EVENTS =====
-            document.getElementById('add-new-user-btn').addEventListener('click', function() {
-                showAddUserModal();
-            });
-            
-            document.getElementById('switch-user-btn').addEventListener('click', function() {
-                showSwitchUserModal();
-            });
-            
-            document.getElementById('delete-account-btn').addEventListener('click', function() {
-                if (confirm('คุณแน่ใจต้องการลบบัญชีผู้ใช้ปัจจุบัน?\nข้อมูลทั้งหมดจะถูกลบไปถาวร!')) {
-                    deleteUser(currentUser.username)
-                        .then(() => {
-                            showNotification('ลบบัญชีผู้ใช้สำเร็จ', 'success');
-                            logout();
-                        })
-                        .catch(error => {
-                            showNotification(error, 'error');
-                        });
-                }
-            });
-            
-            // ===== CATEGORIES PAGE =====
-            document.getElementById('add-category-btn').addEventListener('click', function() {
-                showNotification('คุณสามารถเพิ่มหมวดหมู่ได้จาก dropdown ในหน้าบันทึกรายการ', 'info');
-            });
-            
-            // ===== CLOSE MODAL ON OVERLAY CLICK =====
-            document.querySelectorAll('.modal-overlay').forEach(overlay => {
-                overlay.addEventListener('click', function(e) {
-                    if (e.target === this) {
-                        this.style.display = 'none';
-                    }
-                });
-            });
+                    <form class="login-form" id="login-form">
+                        <div class="form-group">
+                            <label for="login-username">ชื่อผู้ใช้</label>
+                            <input type="text" id="login-username" class="form-input" placeholder="กรอกชื่อผู้ใช้" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="login-password">รหัสผ่าน</label>
+                            <input type="password" id="login-password" class="form-input" placeholder="กรอกรหัสผ่าน" required>
+                        </div>
+                        
+                        <div class="login-options">
+                            <div class="remember-me">
+                                <input type="checkbox" id="remember-me">
+                                <label for="remember-me">จำการเข้าสู่ระบบ</label>
+                            </div>
+                            <a href="#" class="forgot-password">ลืมรหัสผ่าน?</a>
+                        </div>
+                        
+                        <button type="submit" class="login-btn" id="login-btn">
+                            <span>เข้าสู่ระบบ</span>
+                        </button>
+                    </form>
+                    
+                    <div class="register-link">
+                        ยังไม่มีบัญชีผู้ใช้? <a href="#" id="register-link">สมัครสมาชิก</a>
+                    </div>
+                `;
+                // Re-attach event listeners
+                setupLoginPageEvents();
+            }
         });
     </script>
 </body>
