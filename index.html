@@ -3303,8 +3303,7 @@
             
             // Set today's date
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('modal-transaction-date
-                                                document.getElementById('modal-transaction-date').value = today;
+            document.getElementById('modal-transaction-date').value = today;
             document.getElementById('modal-transaction-form').reset();
             document.getElementById('modal-transaction-type').value = 'expense';
         }
@@ -3633,10 +3632,6 @@
                     }
                 });
             });
-            
-            // Initialize with admin login for testing
-            // document.getElementById('login-username').value = 'admin';
-            // document.getElementById('login-password').value = 'admin123';
         });
     </script>
 </body>
